@@ -143,13 +143,12 @@ def merge_event_lists_union(*args):
     return events
 
 
-def merge_event_list_intersection(*args):
+def merge_event_lists_intersection(*args):
     # Merge the two lists, sort and resolve conflicting events.
     input_events = []
     for events in args:
         input_events.extend(events)
-    # TODO: choose a sorting order that assures correctness.
-    input_events.sort()
+    input_events.sort(key=lambda t: (t[0], t[1], get_union_priority(t[2], t[3]), t[4]))
     events = []
 
     # Keep track of the number of open ranges and the leading opening statement of the current segment.
@@ -170,11 +169,14 @@ def merge_event_list_intersection(*args):
             # We are about to close a range.
             if open_ranges == len(args):
                 # We have closed a range. Add current point to range.
-                events.append(statement)
+                # If the event combined with the last results in an empty range, remove the last event instead.
+                if len(events) == 0 or not (value == events[-1][1] and (inclusive == 0 or events[-1][3] == 0)):
+                    events.append(statement)
+                else:
+                    events.pop()
 
             # A range has been closed.
             open_ranges -= 1
-
     return events
 
 
@@ -189,7 +191,6 @@ def generate_expression_sweep_events(name, expression):
             # (name, value, event_id, inclusiveness, transition_id)
             # event_id = {0: start, 1: end}
             # inclusiveness = {0: {<,>}, 1: {>=,==,<=}}
-            # TODO: Determine the correct inclusive values such that merging is done correctly.
             if symbol == "<":
                 return [(lh[1], float('-inf'), 0, 1, name), (lh[1], rh[1], 1, 0, name)]
             elif symbol == "<=":
@@ -210,7 +211,7 @@ def generate_expression_sweep_events(name, expression):
         elif symbol == "&&":
             events_lh = generate_expression_sweep_events(name, lh)
             events_rh = generate_expression_sweep_events(name, rh)
-            return merge_event_list_intersection(events_lh, events_rh)
+            return merge_event_lists_intersection(events_lh, events_rh)
         elif symbol == "||":
             events_lh = generate_expression_sweep_events(name, lh)
             events_rh = generate_expression_sweep_events(name, rh)
@@ -246,4 +247,4 @@ transitions = [
     ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
 ]
 
-generate_sweep_events(transitions[-1:])
+generate_sweep_events(transitions)

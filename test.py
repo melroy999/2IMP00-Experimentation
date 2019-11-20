@@ -1,6 +1,6 @@
 import unittest
 
-from main import event_list_invert, merge_event_lists_union
+from main import event_list_invert, merge_event_lists_union, merge_event_lists_intersection
 
 
 # noinspection DuplicatedCode
@@ -126,6 +126,63 @@ class TestUnionOperations(unittest.TestCase):
         rhs = [('x', 3, 0, 1, 't1'), ('x', 5, 1, 1, 't1')]
         result = merge_event_lists_union(lhs, rhs)
         self.assertEqual([('x', 0, 0, 1, 't1'), ('x', 5, 1, 1, 't1')], result)
+
+
+# noinspection DuplicatedCode
+class TestIntersectionOperations(unittest.TestCase):
+    def test_intersection_simple_ranges_1(self):
+        lhs = [('x', float('-inf'), 0, 1, 't1'), ('x', 1, 1, 0, 't1')]
+        rhs = [('x', 0, 0, 0, 't1'), ('x', float('inf'), 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([('x', 0, 0, 0, 't1'), ('x', 1, 1, 0, 't1')], result)
+
+    def test_intersection_simple_ranges_2(self):
+        lhs = [('x', float('-inf'), 0, 1, 't1'), ('x', 0, 1, 0, 't1')]
+        rhs = [('x', 0, 0, 0, 't1'), ('x', float('inf'), 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([], result)
+
+    def test_intersection_simple_ranges_3(self):
+        lhs = [('x', float('-inf'), 0, 1, 't1'), ('x', 0, 1, 0, 't1')]
+        rhs = [('x', float('-inf'), 0, 1, 't1'), ('x', 0, 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual(lhs, result)
+
+    def test_intersection_closed_ranges_1(self):
+        lhs = [('x', 0, 0, 1, 't1'), ('x', 2, 1, 1, 't1'), ('x', 4, 0, 1, 't1'), ('x', 6, 1, 1, 't1')]
+        rhs = [('x', 1, 0, 1, 't1'), ('x', 3, 1, 1, 't1'), ('x', 5, 0, 1, 't1'), ('x', 7, 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([('x', 1, 0, 1, 't1'), ('x', 2, 1, 1, 't1'), ('x', 5, 0, 1, 't1'), ('x', 6, 1, 1, 't1')], result)
+
+    def test_intersection_closed_ranges_2(self):
+        lhs = [('x', 0, 0, 1, 't1'), ('x', 1, 1, 0, 't1')]
+        rhs = [('x', 1, 0, 1, 't1'), ('x', 3, 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([], result)
+
+    def test_intersection_closed_ranges_3(self):
+        lhs = [('x', 0, 0, 1, 't1'), ('x', 1, 1, 0, 't1'), ('x', 4, 0, 1, 't1'), ('x', 6, 1, 1, 't1')]
+        rhs = [('x', 1, 0, 1, 't1'), ('x', 3, 1, 1, 't1'), ('x', 5, 0, 1, 't1'), ('x', 7, 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([('x', 5, 0, 1, 't1'), ('x', 6, 1, 1, 't1')], result)
+
+    def test_intersection_closed_ranges_4(self):
+        lhs = [('x', 0, 0, 1, 't1'), ('x', 1, 1, 1, 't1')]
+        rhs = [('x', 1, 0, 1, 't1'), ('x', 2, 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([('x', 1, 0, 1, 't1'), ('x', 1, 1, 1, 't1')], result)
+
+    def test_intersection_point_1(self):
+        lhs = [('x', float('-inf'), 0, 1, 't1'), ('x', 0, 1, 1, 't1')]
+        rhs = [('x', 0, 0, 1, 't1'), ('x', float('inf'), 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([('x', 0, 0, 1, 't1'), ('x', 0, 1, 1, 't1')], result)
+
+    def test_intersection_point_2(self):
+        lhs = [('x', 0, 0, 1, 't1'), ('x', 0, 1, 1, 't1')]
+        rhs = [('x', float('-inf'), 0, 1, 't1'), ('x', float('inf'), 1, 1, 't1')]
+        result = merge_event_lists_intersection(lhs, rhs)
+        self.assertEqual([('x', 0, 0, 1, 't1'), ('x', 0, 1, 1, 't1')], result)
 
 
 if __name__ == '__main__':
