@@ -2,30 +2,10 @@ import math
 import re
 
 # Regex strings used to parse leaves in the tree.
-integer_regex = re.compile(r"(-?\d+)$")
-float_regex = re.compile(r"(-?\d+.\d+)$")
-boolean_regex = re.compile(r"(true|false)$")
-variable_regex = re.compile(r"([^ ]+)$")
-
-# Simple brackets.
-bracket_regex = re.compile(r"\((.+)\)$")
-
-# Regex strings used to parse boolean operators.
-not_regex = re.compile(r"!(.+)$")
-and_regex = re.compile(r"(.+) && (.+)$")
-or_regex = re.compile(r"(.+) \|\| (.+)$")
-equal_regex = re.compile(r"(.+) == (.+)$")
-not_equal_regex = re.compile(r"(.+) != (.+)$")
-gte_regex = re.compile(r"(.+) >= (.+)$")
-lte_regex = re.compile(r"(.+) <= (.+)$")
-gt_regex = re.compile(r"(.+) > (.+)$")
-lt_regex = re.compile(r"(.+) < (.+)$")
-
-# Regex strings used to parse math operators.
-plus_regex = re.compile(r"(.+) \+ (.+)$")
-minus_regex = re.compile(r"(.+) - (.+)$")
-times_regex = re.compile(r"(.+) \* (.+)$")
-divide_regex = re.compile(r"(.+) / (.+)$")
+integer_regex = re.compile(r"^(-?\d+)$")
+float_regex = re.compile(r"^(-?\d+.\d+)$")
+boolean_regex = re.compile(r"^(true|false)$")
+variable_regex = re.compile(r"^([a-zA-Z][a-zA-Z0-9]*)$")
 
 
 # Get the parse tree of the given expression.
@@ -33,7 +13,7 @@ def expression_parser(exp):
     # Strip superfluous whitespaces.
     exp = exp.strip()
 
-    # Check for leaves first, since they are the smallest structures.
+    # First check if we have a simple format (leaves) with regular expressions.
     if re.match(integer_regex, exp):
         return "int", int(exp)
     if re.match(float_regex, exp):
@@ -43,53 +23,46 @@ def expression_parser(exp):
     if re.match(variable_regex, exp):
         return "var", exp
 
-    # Check Boolean operators.
-    if re.match(not_regex, exp):
-        m = re.match(not_regex, exp)
-        return "!", expression_parser(m.group(0))
-    if re.match(and_regex, exp):
-        lh, rh = re.match(and_regex, exp).groups()
-        return "&&", expression_parser(lh), expression_parser(rh)
-    if re.match(or_regex, exp):
-        lh, rh = re.match(or_regex, exp).groups()
-        return "||", expression_parser(lh), expression_parser(rh)
-    if re.match(equal_regex, exp):
-        lh, rh = re.match(equal_regex, exp).groups()
-        return "==", expression_parser(lh), expression_parser(rh)
-    if re.match(not_equal_regex, exp):
-        lh, rh = re.match(not_equal_regex, exp).groups()
-        return "!=", expression_parser(lh), expression_parser(rh)
-    if re.match(gte_regex, exp):
-        lh, rh = re.match(gte_regex, exp).groups()
-        return ">=", expression_parser(lh), expression_parser(rh)
-    if re.match(lte_regex, exp):
-        lh, rh = re.match(lte_regex, exp).groups()
-        return "<=", expression_parser(lh), expression_parser(rh)
-    if re.match(gt_regex, exp):
-        lh, rh = re.match(gt_regex, exp).groups()
-        return ">", expression_parser(lh), expression_parser(rh)
-    if re.match(lt_regex, exp):
-        lh, rh = re.match(lt_regex, exp).groups()
-        return "<", expression_parser(lh), expression_parser(rh)
+    # Count the brackets to find the highest priority operator.
+    open_brackets = 0
 
-    # Check math operators.
-    if re.match(plus_regex, exp):
-        lh, rh = re.match(plus_regex, exp).groups()
-        return "+", expression_parser(lh), expression_parser(rh)
-    if re.match(minus_regex, exp):
-        lh, rh = re.match(minus_regex, exp).groups()
-        return "-", expression_parser(lh), expression_parser(rh)
-    if re.match(times_regex, exp):
-        lh, rh = re.match(times_regex, exp).groups()
-        return "*", expression_parser(lh), expression_parser(rh)
-    if re.match(divide_regex, exp):
-        lh, rh = re.match(divide_regex, exp).groups()
-        return "/", expression_parser(lh), expression_parser(rh)
+    # The list of defined operators, sorted on importance.
+    operators = ["&&", "||", "==", "!=", ">=", "<=", ">", "<", "+", "-", "*", "/", "!"]
+    operator_matches = {}
 
-    # Check for superfluous brackets.
-    if re.match(bracket_regex, exp):
-        m = re.match(bracket_regex, exp)
-        return expression_parser(m.group(1))
+    # Iterate over the string and determine which operator is at the root of the tree.
+    for i, c in enumerate(exp):
+        if open_brackets == 0:
+            # Check whether we have found an operator.
+            if i + 1 < len(exp) and c + exp[i + 1] in operators:
+                # We found a two symbol operator.
+                operator_matches[c + exp[i + 1]] = i
+            elif c in operators:
+                # We found a single symbol operator.
+                operator_matches[c] = i
+
+        # Handle brackets.
+        if c == "(":
+            open_brackets += 1
+        elif c == ")":
+            open_brackets -= 1
+
+    # Find the highest priority operator.
+    for operator in operators:
+        if operator in operator_matches:
+            # Get the index.
+            i = operator_matches[operator]
+
+            # Parse recursively based on the chosen operator.
+            if operator == "!":
+                # Unary operator.
+                return operator, expression_parser(exp[i+1:])
+            else:
+                # Binary operator.
+                return operator, expression_parser(exp[:i]), expression_parser(exp[i+len(operator):])
+
+    # If no matches have been found, we have superfluous brackets.
+    return expression_parser(exp[1:-1])
 
 
 # Priority table for line segment configurations.
@@ -273,4 +246,4 @@ transitions = [
     ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
 ]
 
-generate_sweep_events(transitions)
+generate_sweep_events(transitions[-1:])
