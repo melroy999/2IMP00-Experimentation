@@ -8,7 +8,7 @@ boolean_regex = re.compile(r"(true|false)$")
 variable_regex = re.compile(r"([^ ]+)$")
 
 # Simple brackets.
-bracket_regex = re.compile(r"\((.+)\)")
+bracket_regex = re.compile(r"\((.+)\)$")
 
 # Regex strings used to parse boolean operators.
 not_regex = re.compile(r"!(.+)$")
@@ -24,7 +24,7 @@ lt_regex = re.compile(r"(.+) < (.+)$")
 # Regex strings used to parse math operators.
 plus_regex = re.compile(r"(.+) \+ (.+)$")
 minus_regex = re.compile(r"(.+) - (.+)$")
-times_regex = re.compile(r"(.+) * (.+)$")
+times_regex = re.compile(r"(.+) \* (.+)$")
 divide_regex = re.compile(r"(.+) / (.+)$")
 
 
@@ -42,11 +42,6 @@ def expression_parser(exp):
         return "bool", exp == "true"
     if re.match(variable_regex, exp):
         return "var", exp
-
-    # Check for brackets.
-    if re.match(bracket_regex, exp):
-        m = re.match(bracket_regex, exp)
-        return expression_parser(m.group(1))
 
     # Check Boolean operators.
     if re.match(not_regex, exp):
@@ -90,6 +85,11 @@ def expression_parser(exp):
     if re.match(divide_regex, exp):
         lh, rh = re.match(divide_regex, exp).groups()
         return "/", expression_parser(lh), expression_parser(rh)
+
+    # Check for superfluous brackets.
+    if re.match(bracket_regex, exp):
+        m = re.match(bracket_regex, exp)
+        return expression_parser(m.group(1))
 
 
 # Priority table for line segment configurations.
@@ -136,9 +136,11 @@ def event_list_invert(input_events):
     return events
 
 
-def merge_event_lists_union(lh_events, rh_events):
+def merge_event_lists_union(*args):
     # Merge the two lists, sort and remove superfluous events.
-    input_events = lh_events + rh_events
+    input_events = []
+    for events in args:
+        input_events.extend(events)
     input_events.sort(key=lambda t: (t[0], t[1], get_union_priority(t[2], t[3]), t[4]))
     events = []
 
@@ -168,13 +170,38 @@ def merge_event_lists_union(lh_events, rh_events):
     return events
 
 
-def merge_event_list_intersection(lh_events, rh_events):
-    # TODO: merge the event lists correctly.
+def merge_event_list_intersection(*args):
     # Merge the two lists, sort and resolve conflicting events.
-    input_events = lh_events + rh_events
+    input_events = []
+    for events in args:
+        input_events.extend(events)
+    # TODO: choose a sorting order that assures correctness.
     input_events.sort()
+    events = []
 
-    events = input_events
+    # Keep track of the number of open ranges and the leading opening statement of the current segment.
+    open_ranges = 0
+
+    # We assume that the given event lists are already in the proper format.
+    # Thus, we generate intersection ranges when we have two ranges active simultaneously.
+    for statement in input_events:
+        var, value, event_id, inclusive, transition = statement
+        if event_id == 0:
+            # A range has been opened.
+            open_ranges += 1
+
+            if open_ranges == len(args):
+                # We have multiple ranges open simultaneously. Add current point to range.
+                events.append(statement)
+        else:
+            # We are about to close a range.
+            if open_ranges == len(args):
+                # We have closed a range. Add current point to range.
+                events.append(statement)
+
+            # A range has been closed.
+            open_ranges -= 1
+
     return events
 
 
@@ -242,7 +269,8 @@ transitions = [
     ("t5", "x >= 7 && x <= 9"),
     ("t6", "x <= 7 && x >= 9"),
     ("t7", "x > 20 || x < 0"),
-    ("t8", "x < 20 || x > 0")
+    ("t8", "x < 20 || x > 0"),
+    ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
 ]
 
 generate_sweep_events(transitions)
