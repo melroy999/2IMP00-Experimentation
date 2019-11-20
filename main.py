@@ -1,5 +1,5 @@
+import math
 import re
-from enum import Enum
 
 # Regex strings used to parse leaves in the tree.
 integer_regex = re.compile(r"(-?\d+)$")
@@ -93,14 +93,14 @@ def expression_parser(exp):
 
 
 # Priority table for line segment configurations.
-def get_union_priority(event_id, openness):
+def get_union_priority(event_id, inclusive):
     if event_id == 0:
-        if openness == 0:
+        if inclusive == 0:
             return 2
         else:
             return 0
     else:
-        if openness == 0:
+        if inclusive == 0:
             return 1
         else:
             return 3
@@ -108,34 +108,30 @@ def get_union_priority(event_id, openness):
 
 def event_list_invert(input_events):
     # Start by sorting the events. We assume that no overlapping ranges exist.
-    input_events.sort()
+    # The union priority ordering does seem to do the trick here.
+    input_events.sort(key=lambda t: (t[0], t[1], get_union_priority(t[2], t[3]), t[4]))
     events = []
-
-    # Track the latest end event.
-    if input_events[0][1] > float('-inf'):
-        var, value, event_id, openness, transition = input_events[0]
-        # Openness is purposefully 0, such that the event is created with the correct openness.
-        closing_statement = (var, float('-inf'), 0, 0, transition)
-    else:
-        closing_statement = None
 
     # Traverse the list of events from start to end and find open ranges.
     # Essentially, connect end events to start events.
     for statement in input_events:
-        var, value, event_id, openness, transition = statement
-        if event_id == 0:
-            # New range is opened. Fill the space between the last closing statement and the range.
-            # The last closing statement may not exist yet. If it does not, do not create a range.
-            if closing_statement is not None:
-                _, value2, _, openness2, _ = closing_statement
-                events.extend([(var, value2, 0, 1 - openness2, transition), (var, value, 1, 1 - openness, transition)])
-        else:
-            closing_statement = statement
+        var, value, event_id, inclusive, transition = statement
+        if not math.isinf(value):
+            events.append((var, value, 1 - event_id, 1 - inclusive, transition))
 
-    # Check if the last event is an opening event. If so, add a closing event to infinity.
-    var, value, event_id, openness, transition = input_events[-1]
-    if event_id == 1 and value == float('inf'):
+    if len(events) == 0:
+        return []
+
+    # Correct the start and end of the event list.
+    var, value, event_id, inclusive, transition = events[-1]
+    if event_id == 0:
+        # Range is not ended. Add ending.
         events.append((var, float('inf'), 1, 1, transition))
+
+    var, value, event_id, inclusive, transition = events[0]
+    if event_id == 1:
+        # Range is not started. Add start.
+        events.insert(0, (var, float('-inf'), 0, 1, transition))
 
     return events
 
@@ -143,7 +139,7 @@ def event_list_invert(input_events):
 def merge_event_lists_union(lh_events, rh_events):
     # Merge the two lists, sort and remove superfluous events.
     input_events = lh_events + rh_events
-    input_events.sort(key=lambda t: (t[0], t[1], t[2], get_union_priority(t[2], t[3]), t[4]))
+    input_events.sort(key=lambda t: (t[0], t[1], get_union_priority(t[2], t[3]), t[4]))
     events = []
 
     # Keep track of the number of open ranges and the leading opening statement of the current segment.
@@ -154,7 +150,7 @@ def merge_event_lists_union(lh_events, rh_events):
     # Open new ranges when the event makes open_ranges non-zero.
     # Close the latest range when open_ranges becomes zero.
     for statement in input_events:
-        var, value, event_id, openness, transition = statement
+        var, value, event_id, inclusive, transition = statement
         if event_id == 0:
             # A new range has been opened.
             if open_ranges == 0:
@@ -193,7 +189,7 @@ def generate_expression_sweep_events(name, expression):
             # (name, value, event_id, inclusiveness, transition_id)
             # event_id = {0: start, 1: end}
             # inclusiveness = {0: {<,>}, 1: {>=,==,<=}}
-            # TODO: Determine the correct openness values such that merging is done correctly.
+            # TODO: Determine the correct inclusive values such that merging is done correctly.
             if symbol == "<":
                 return [(lh[1], float('-inf'), 0, 1, name), (lh[1], rh[1], 1, 0, name)]
             elif symbol == "<=":
