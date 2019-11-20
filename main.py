@@ -289,9 +289,7 @@ def execute_sweep(_transitions):
         if event_id == 0:
             # Complete the preceding segment, before processing this event.
             # Events might start at the same moment. If so, skip adding.
-            _, value2, event_id2, inclusive2, _ = events[i - 1]
-            if (event_id2, value2, inclusive2) != (event_id, value, inclusive):
-                segments.append((last_segment_opener, (value, 1 - inclusive), [*sweep_status]))
+            segments.append((last_segment_opener, (value, 1 - inclusive), [*sweep_status]))
 
             # Update the status and find the corresponding next segment opener.
             sweep_status[transition] = transition
@@ -299,16 +297,19 @@ def execute_sweep(_transitions):
         else:
             # Complete the preceding segment, before processing this event.
             # Events might end at the same moment. If the next is the same, skip adding.
-            if i + 1 < len(events):
-                _, value2, event_id2, inclusive2, _ = events[i + 1]
-                if (event_id2, value2, inclusive2) != (event_id, value, inclusive):
-                    segments.append((last_segment_opener, (value, inclusive), [*sweep_status]))
-            else:
-                segments.append((last_segment_opener, (value, inclusive), [*sweep_status]))
+            segments.append((last_segment_opener, (value, inclusive), [*sweep_status]))
 
             # Update the status and find the corresponding next segment opener.
             sweep_status.pop(transition)
             last_segment_opener = (value, 1 - inclusive)
+
+    for segment in segments[:]:
+        start, end, _ = segment
+        # Merge segments that are generated when multiple transitions start or end at the same point.
+        # These segments display the behavior (v, 0), (v, 1) or (v, 1), (v, 0).
+        # These statements translate to x > v && x <= v or x >= v && x < v, which are both empty ranges.
+        if start[0] == end[0] and (start[1] == 0 or end[1] == 0):
+            segments.remove(segment)
 
     return segments
 
@@ -325,4 +326,5 @@ transitions = [
     # ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
 ]
 
-print(execute_sweep(transitions))
+for v in execute_sweep(transitions):
+    print(v)
