@@ -2,6 +2,8 @@ import math
 import re
 
 # Regex strings used to parse leaves in the tree.
+from queue import PriorityQueue
+
 integer_regex = re.compile(r"^(-?\d+)$")
 float_regex = re.compile(r"^(-?\d+.\d+)$")
 boolean_regex = re.compile(r"^(true|false)$")
@@ -223,28 +225,104 @@ def generate_expression_sweep_events(name, expression):
 def generate_sweep_events(_transitions):
     # Convert all transitions to their parsed counterpart.
     transitions_parsed = [(name, expression_parser(expression)) for name, expression in _transitions]
-    for name, expression in transitions_parsed:
-        print(name, expression)
 
     # The list of events we have found.
-    events = []
+    transition_to_sweep_events = []
 
     # Iterate over all the transitions and generate events based on the boolean operations.
     for name, expression in transitions_parsed:
-        print(generate_expression_sweep_events(name, expression))
+        transition_events = generate_expression_sweep_events(name, expression)
+        print(name, expression, transition_events)
+        transition_to_sweep_events.extend([transition_events])
+    print()
+
+    # Next, merge the lists while also retaining the original ordering.
+    # For this purpose, we use a queue, where elements are ordered on the first element of the translation list.
+    q = PriorityQueue()
+    for event_list in transition_to_sweep_events:
+        if len(event_list) > 0:
+            var, value, event_id, inclusive, transition = event_list[0]
+            q.put(((var, value, 1 - event_id, inclusive if event_id == 1 else 1 - inclusive, transition), event_list))
+
+    # Keep picking from the queue until it is empty.
+    events = []
+    while not q.empty():
+        _, event_list = q.get()
+        events.append(event_list[0])
+
+        # Remove the first element and re-add the list to the queue if the list is non-empty.
+        event_list = event_list[1:]
+        if len(event_list) > 0:
+            var, value, event_id, inclusive, transition = event_list[0]
+            q.put(((var, value, 1 - event_id, inclusive if event_id == 1 else 1 - inclusive, transition), event_list))
+
+    return events
+
+
+def execute_sweep(_transitions):
+    # Generate all events needed in the sweep. The events are already ordered through a merging process.
+    events = generate_sweep_events(_transitions)
+
+    # We cannot do anything with an empty event list.
+    if len(events) == 0:
+        return []
+
+    # A set that contains the current state of the playing field.
+    sweep_status = {}
+
+    # The segments we were able to identify during the swipe.
+    # Segment format: ((start, inclusive), (end, inclusive), {t1, t2, ...})
+    segments = []
+
+    # Process the first event separately such that the right values can be set initially.
+    var, value, event_id, inclusive, transition = events[0]
+    sweep_status[transition] = transition
+    last_segment_opener = (value, inclusive)
+
+    # Visit all events and track the active transitions in the given bracket.
+    for i, event in enumerate(events):
+        # Skip the first iteration.
+        if i == 0:
+            continue
+
+        var, value, event_id, inclusive, transition = event
+        if event_id == 0:
+            # Complete the preceding segment, before processing this event.
+            # Events might start at the same moment. If so, skip adding.
+            _, value2, event_id2, inclusive2, _ = events[i - 1]
+            if (event_id2, value2, inclusive2) != (event_id, value, inclusive):
+                segments.append((last_segment_opener, (value, 1 - inclusive), [*sweep_status]))
+
+            # Update the status and find the corresponding next segment opener.
+            sweep_status[transition] = transition
+            last_segment_opener = (value, inclusive)
+        else:
+            # Complete the preceding segment, before processing this event.
+            # Events might end at the same moment. If the next is the same, skip adding.
+            if i + 1 < len(events):
+                _, value2, event_id2, inclusive2, _ = events[i + 1]
+                if (event_id2, value2, inclusive2) != (event_id, value, inclusive):
+                    segments.append((last_segment_opener, (value, inclusive), [*sweep_status]))
+            else:
+                segments.append((last_segment_opener, (value, inclusive), [*sweep_status]))
+
+            # Update the status and find the corresponding next segment opener.
+            sweep_status.pop(transition)
+            last_segment_opener = (value, 1 - inclusive)
+
+    return segments
 
 
 # The transitions available to the state.
 transitions = [
     ("t1", "x >= 10"),
-    ("t2", "x == 5"),
+    ("t2", "x == 5 || x == 8"),
     ("t3", "x < 5"),
-    ("t4", "(x == 8)"),
-    ("t5", "x >= 7 && x <= 9"),
-    ("t6", "x <= 7 && x >= 9"),
-    ("t7", "x > 20 || x < 0"),
-    ("t8", "x < 20 || x > 0"),
-    ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
+    ("t4", "x >= 7 && x <= 9"),
+    ("t5", "x <= 7 && x >= 9"),
+    ("t6", "x > 20 || x < 0"),
+    ("t7", "x < 20 || x > 0"),
+    # ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
 ]
 
-generate_sweep_events(transitions)
+print(execute_sweep(transitions))
