@@ -1,3 +1,5 @@
 .metadata/
+.cache/
+idea/
 
 .idea/workspace.xml
