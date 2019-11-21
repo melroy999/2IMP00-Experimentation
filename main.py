@@ -222,6 +222,19 @@ def generate_expression_sweep_events(name, expression):
             raise Exception("The given expression does not resolve to a boolean value.")
 
 
+def get_merge_priority(event_id, inclusive):
+    if event_id == 0:
+        if inclusive == 0:
+            return 3
+        else:
+            return 1
+    else:
+        if inclusive == 0:
+            return 0
+        else:
+            return 2
+
+
 def generate_sweep_events(_transitions):
     # Convert all transitions to their parsed counterpart.
     transitions_parsed = [(name, expression_parser(expression)) for name, expression in _transitions]
@@ -230,6 +243,7 @@ def generate_sweep_events(_transitions):
     transition_to_sweep_events = []
 
     # Iterate over all the transitions and generate events based on the boolean operations.
+    print("Sweep event translations:")
     for name, expression in transitions_parsed:
         transition_events = generate_expression_sweep_events(name, expression)
         print(name, expression, transition_events)
@@ -238,23 +252,29 @@ def generate_sweep_events(_transitions):
 
     # Next, merge the lists while also retaining the original ordering.
     # For this purpose, we use a queue, where elements are ordered on the first element of the translation list.
-    q = PriorityQueue()
-    for event_list in transition_to_sweep_events:
-        if len(event_list) > 0:
-            var, value, event_id, inclusive, transition = event_list[0]
-            q.put(((var, value, 1 - event_id, inclusive if event_id == 1 else 1 - inclusive, transition), event_list))
+    # q = PriorityQueue()
+    # for event_list in transition_to_sweep_events:
+    #     if len(event_list) > 0:
+    #         var, value, event_id, inclusive, transition = event_list[0]
+    #         q.put(((var, value, get_merge_priority(event_id, inclusive)), event_list))
+    #
+    # # Keep picking from the queue until it is empty.
+    # events = []
+    # while not q.empty():
+    #     _, event_list = q.get()
+    #     events.append(event_list[0])
+    #
+    #     # Remove the first element and re-add the list to the queue if the list is non-empty.
+    #     event_list = event_list[1:]
+    #     if len(event_list) > 0:
+    #         var, value, event_id, inclusive, transition = event_list[0]
+    #         q.put(((var, value, get_merge_priority(event_id, inclusive)), event_list))
 
-    # Keep picking from the queue until it is empty.
     events = []
-    while not q.empty():
-        _, event_list = q.get()
-        events.append(event_list[0])
+    for event_list in transition_to_sweep_events:
+        events += event_list
 
-        # Remove the first element and re-add the list to the queue if the list is non-empty.
-        event_list = event_list[1:]
-        if len(event_list) > 0:
-            var, value, event_id, inclusive, transition = event_list[0]
-            q.put(((var, value, 1 - event_id, inclusive if event_id == 1 else 1 - inclusive, transition), event_list))
+    events.sort(key=lambda t: (t[0], t[1], get_merge_priority(t[2], t[3])))
 
     return events
 
@@ -304,11 +324,15 @@ def execute_sweep(_transitions):
             last_segment_opener = (value, 1 - inclusive)
 
     for segment in segments[:]:
-        start, end, _ = segment
+        start, end, t = segment
         # Merge segments that are generated when multiple transitions start or end at the same point.
         # These segments display the behavior (v, 0), (v, 1) or (v, 1), (v, 0).
         # These statements translate to x > v && x <= v or x >= v && x < v, which are both empty ranges.
         if start[0] == end[0] and (start[1] == 0 or end[1] == 0):
+            segments.remove(segment)
+
+        # Remove segments with no active transitions.
+        elif len(t) == 0:
             segments.remove(segment)
 
     return segments
@@ -323,8 +347,21 @@ transitions = [
     ("t5", "x <= 7 && x >= 9"),
     ("t6", "x > 20 || x < 0"),
     ("t7", "x < 20 || x > 0"),
-    # ("t9", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
+    ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
+]
+segments = execute_sweep(transitions)
+print("Segments:")
+for v in segments:
+    print(v)
+
+print()
+# The transitions available to the state.
+transitions = [
+    ("t1", "x == 5 || x == 8"),
+    ("t2", "x == 5 || x == 8"),
 ]
 
-for v in execute_sweep(transitions):
+segments = execute_sweep(transitions)
+print("Segments:")
+for v in segments:
     print(v)
