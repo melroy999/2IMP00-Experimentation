@@ -324,18 +324,16 @@ def get_decision_tree(segments):
         # Handle the segment as a leaf.
         start, end, active_transitions = segments[0]
 
-        if start == (float('-inf'), 1):
+        if start and start[0] == float('-inf'):
             if end is None:
                 return active_transitions
             else:
                 return end, active_transitions, None
-        if end == (float('inf'), 1):
+        if end and end[0] == float('inf'):
             if start is None:
                 return active_transitions
             else:
                 return (start[0], 1 - start[1]), None, active_transitions
-
-        # TODO: (inf, 1) and (-inf, 1) are not handled correctly in very small cases such as x >= 5.
 
         # If start/end is still defined, add a decision.
         if start is not None and end is not None:
@@ -359,7 +357,7 @@ def get_decision_tree(segments):
 
         # Check if a void exists between the two segments and adjust the segment start/end points accordingly.
         left_segments[-1] = (start_left, None, transitions_left)
-        if end_left[0] == start_right[0]:
+        if end_left[0] == start_right[0] and end_left[1] != start_right[1]:
             right_segments[0] = (None, end_right, transitions_right)
 
         # Chose the left splitter and continue recursively.
@@ -450,6 +448,12 @@ transition_tests = [
     ],
     [
         ("t1", "x <= 5")
+    ],
+    [
+        ("t1", "x == 5")
+    ],
+    [
+        ("t1", "x != 5")
     ],
     [
         ("t1", "x >= 7"),
