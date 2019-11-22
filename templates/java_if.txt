@@ -1,0 +1,3 @@
+if ({{condition}}) {
+{{if_body | indent(4, true) }}
+}

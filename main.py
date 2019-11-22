@@ -1,5 +1,6 @@
 import math
 import re
+from jinja2 import Template, Environment, FileSystemLoader
 
 # Regex strings used to parse leaves in the tree.
 from queue import PriorityQueue
@@ -250,26 +251,6 @@ def generate_sweep_events(_transitions):
         transition_to_sweep_events.extend([transition_events])
     print()
 
-    # Next, merge the lists while also retaining the original ordering.
-    # For this purpose, we use a queue, where elements are ordered on the first element of the translation list.
-    # q = PriorityQueue()
-    # for event_list in transition_to_sweep_events:
-    #     if len(event_list) > 0:
-    #         var, value, event_id, inclusive, transition = event_list[0]
-    #         q.put(((var, value, get_merge_priority(event_id, inclusive)), event_list))
-    #
-    # # Keep picking from the queue until it is empty.
-    # events = []
-    # while not q.empty():
-    #     _, event_list = q.get()
-    #     events.append(event_list[0])
-    #
-    #     # Remove the first element and re-add the list to the queue if the list is non-empty.
-    #     event_list = event_list[1:]
-    #     if len(event_list) > 0:
-    #         var, value, event_id, inclusive, transition = event_list[0]
-    #         q.put(((var, value, get_merge_priority(event_id, inclusive)), event_list))
-
     events = []
     for event_list in transition_to_sweep_events:
         events += event_list
@@ -338,6 +319,86 @@ def execute_sweep(_transitions):
     return segments
 
 
+def get_decision_tree(segments):
+    if len(segments) == 1:
+        # Handle the segment as a leaf.
+        start, end, active_transitions = segments[0]
+
+        # If start/end is still defined, add a decision.
+        if start is not None and end is not None:
+            # base the choice on the left side and continue recursively.
+            return start, get_decision_tree([(None, end, active_transitions)]), None
+        elif start is not None:
+            if start == (float('-inf'), 1):
+                return active_transitions
+            else:
+                return (start[0], 1 - start[1]), None, active_transitions
+        elif end is not None:
+            if end == (float('inf'), 1):
+                return active_transitions
+            else:
+                return end, None, active_transitions
+        else:
+            return active_transitions
+    else:
+        # Split into two lists of equal length segments.
+        i = len(segments) // 2
+        left_segments = segments[:i]
+        right_segments = segments[i:]
+
+        # Decide what value to make the split on.
+        start_left, end_left, transitions_left = left_segments[-1]
+        start_right, end_right, transitions_right = right_segments[0]
+
+        # Check if a void exists between the two segments and adjust the segment start/end points accordingly.
+        left_segments[-1] = (start_left, None, transitions_left)
+        if end_left[0] == start_right[0]:
+            right_segments[0] = (None, end_right, transitions_right)
+
+        # Chose the left splitter and continue recursively.
+        return end_left, get_decision_tree(left_segments), get_decision_tree(right_segments)
+
+
+file_loader = FileSystemLoader('templates')
+env = Environment(loader=file_loader)
+if_template = env.get_template('java_if.txt')
+if_else_template = env.get_template('java_if_else.txt')
+
+
+def generate_java_code(decision_tree):
+    condition, if_body, else_body = decision_tree
+
+    if if_body is not None:
+        condition_string = "x" + (" <= " if condition[1] == 1 else " < ") + str(condition[0])
+        if isinstance(if_body, list):
+            if_body_string = "System.out.println(" + str(if_body) + ")"
+        else:
+            if_body_string = generate_java_code(if_body)
+
+        if else_body is not None:
+            if isinstance(else_body, list):
+                else_body_string = "System.out.println(" + str(else_body) + ")"
+            else:
+                else_body_string = generate_java_code(else_body)
+
+            # if_else body.
+            return if_else_template.render(condition=condition_string, if_body=if_body_string, else_body=else_body_string)
+        else:
+            # if body.
+            return if_template.render(condition=condition_string, if_body=if_body_string)
+    elif else_body is not None:
+        condition_string = "x" + (" >= " if condition[1] == 0 else " > ") + str(condition[0])
+        if isinstance(else_body, list):
+            if_body_string = "System.out.println(" + str(else_body) + ")"
+        else:
+            if_body_string = generate_java_code(else_body)
+
+        # if body.
+        return if_template.render(condition=condition_string, if_body=if_body_string)
+
+    raise Exception("Supposedly unreachable branch.")
+
+
 # The transitions available to the state.
 transitions = [
     ("t1", "x >= 10"),
@@ -349,10 +410,14 @@ transitions = [
     ("t7", "x < 20 || x > 0"),
     ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
 ]
-segments = execute_sweep(transitions)
+_segments = execute_sweep(transitions)
 print("Segments:")
-for v in segments:
+for v in _segments:
     print(v)
+print()
+print("Decision tree")
+print(get_decision_tree(_segments))
+print(generate_java_code(get_decision_tree(_segments)))
 
 print()
 # The transitions available to the state.
@@ -361,7 +426,11 @@ transitions = [
     ("t2", "x == 5 || x == 8"),
 ]
 
-segments = execute_sweep(transitions)
+_segments = execute_sweep(transitions)
 print("Segments:")
-for v in segments:
+for v in _segments:
     print(v)
+print()
+print("Decision tree")
+print(get_decision_tree(_segments))
+print(generate_java_code(get_decision_tree(_segments)))
