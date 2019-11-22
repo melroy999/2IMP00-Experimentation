@@ -324,20 +324,27 @@ def get_decision_tree(segments):
         # Handle the segment as a leaf.
         start, end, active_transitions = segments[0]
 
+        if start == (float('-inf'), 1):
+            if end is None:
+                return active_transitions
+            else:
+                return end, active_transitions, None
+        if end == (float('inf'), 1):
+            if start is None:
+                return active_transitions
+            else:
+                return (start[0], 1 - start[1]), None, active_transitions
+
+        # TODO: (inf, 1) and (-inf, 1) are not handled correctly in very small cases such as x >= 5.
+
         # If start/end is still defined, add a decision.
         if start is not None and end is not None:
             # base the choice on the left side and continue recursively.
             return start, get_decision_tree([(None, end, active_transitions)]), None
         elif start is not None:
-            if start == (float('-inf'), 1):
-                return active_transitions
-            else:
-                return (start[0], 1 - start[1]), None, active_transitions
+            return (start[0], 1 - start[1]), None, active_transitions
         elif end is not None:
-            if end == (float('inf'), 1):
-                return active_transitions
-            else:
-                return end, None, active_transitions
+            return end, None, active_transitions
         else:
             return active_transitions
     else:
@@ -399,38 +406,79 @@ def generate_java_code(decision_tree):
     raise Exception("Supposedly unreachable branch.")
 
 
+# # The transitions available to the state.
+# transitions = [
+#     ("t1", "x >= 10"),
+#     ("t2", "x == 5 || x == 8"),
+#     ("t3", "x < 5"),
+#     ("t4", "x >= 7 && x <= 9"),
+#     ("t5", "x <= 7 && x >= 9"),
+#     ("t6", "x > 20 || x < 0"),
+#     ("t7", "x < 20 || x > 0"),
+#     ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
+# ]
+# _segments = execute_sweep(transitions)
+# print("Segments:")
+# for v in _segments:
+#     print(v)
+# print()
+# print("Decision tree")
+# print(get_decision_tree(_segments))
+# print(generate_java_code(get_decision_tree(_segments)))
+#
+# print()
+# # The transitions available to the state.
+# transitions = [
+#     ("t1", "x == 5 || x == 8"),
+#     ("t2", "x == 6 || x == 9"),
+# ]
+#
+# _segments = execute_sweep(transitions)
+# print("Segments:")
+# for v in _segments:
+#     print(v)
+# print()
+# print("Decision tree")
+# print(get_decision_tree(_segments))
+# print(generate_java_code(get_decision_tree(_segments)))
+#
+# print()
 # The transitions available to the state.
-transitions = [
-    ("t1", "x >= 10"),
-    ("t2", "x == 5 || x == 8"),
-    ("t3", "x < 5"),
-    ("t4", "x >= 7 && x <= 9"),
-    ("t5", "x <= 7 && x >= 9"),
-    ("t6", "x > 20 || x < 0"),
-    ("t7", "x < 20 || x > 0"),
-    ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
-]
-_segments = execute_sweep(transitions)
-print("Segments:")
-for v in _segments:
-    print(v)
-print()
-print("Decision tree")
-print(get_decision_tree(_segments))
-print(generate_java_code(get_decision_tree(_segments)))
-
-print()
-# The transitions available to the state.
-transitions = [
-    ("t1", "x == 5 || x == 8"),
-    ("t2", "x == 5 || x == 8"),
+transition_tests = [
+    [
+        ("t1", "x >= 5")
+    ],
+    [
+        ("t1", "x <= 5")
+    ],
+    [
+        ("t1", "x >= 7"),
+        ("t2", "x <= 5")
+    ],
+    [
+        ("t1", "x >= 5"),
+        ("t2", "x <= 7")
+    ],
+    [
+        ("t1", "x == 5 || x == 8"),
+        ("t2", "x == 6 || x == 9"),
+    ]
 ]
 
-_segments = execute_sweep(transitions)
-print("Segments:")
-for v in _segments:
-    print(v)
-print()
-print("Decision tree")
-print(get_decision_tree(_segments))
-print(generate_java_code(get_decision_tree(_segments)))
+for transitions in transition_tests:
+    print("#"*80)
+    print("Transitions: ")
+    print(transitions)
+    print()
+    _segments = execute_sweep(transitions)
+    print("Segments:")
+    for v in _segments:
+        print(v)
+    print()
+    print("Decision tree:")
+    print(get_decision_tree(_segments))
+    print()
+    print("Java code:")
+    print(generate_java_code(get_decision_tree(_segments)))
+    print("#"*80)
+    print()
