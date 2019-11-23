@@ -320,6 +320,9 @@ def execute_sweep(_transitions):
 
 
 def get_decision_tree(segments):
+    if len(segments) == 0:
+        return None
+
     if len(segments) == 1:
         # Handle the segment as a leaf.
         start, end, active_transitions = segments[0]
@@ -371,6 +374,9 @@ if_else_template = env.get_template('java_if_else.txt')
 
 
 def generate_java_code(decision_tree):
+    if decision_tree is None:
+        return ""
+
     condition, if_body, else_body = decision_tree
 
     if if_body is not None:
@@ -466,23 +472,42 @@ transition_tests = [
     [
         ("t1", "x == 5 || x == 8"),
         ("t2", "x == 6 || x == 9"),
+    ],
+    [
+        ("t1", "x == 5 && x == 8")
+    ],
+    [
+        ("t1", "x >= 10"),
+        ("t2", "x == 5 || x == 8"),
+        ("t3", "x < 5"),
+        ("t4", "x >= 7 && x <= 9"),
+        ("t5", "x <= 7 && x >= 9"),
+        ("t6", "x > 20 || x < 0"),
+        ("t7", "x < 20 || x > 0"),
+        ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
     ]
 ]
 
 for transitions in transition_tests:
     print("#"*80)
+
     print("Transitions: ")
     print(transitions)
     print()
+
     _segments = execute_sweep(transitions)
+
     print("Segments:")
-    for v in _segments:
-        print(v)
+    print(_segments)
     print()
+
     print("Decision tree:")
     print(get_decision_tree(_segments))
     print()
+
     print("Java code:")
+    print("<code segment start>")
     print(generate_java_code(get_decision_tree(_segments)))
+    print("<code end>")
+
     print("#"*80)
-    print()
