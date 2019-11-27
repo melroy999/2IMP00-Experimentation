@@ -10,6 +10,13 @@ float_regex = re.compile(r"^(-?\d+.\d+)$")
 boolean_regex = re.compile(r"^(true|false)$")
 variable_regex = re.compile(r"^([a-zA-Z][a-zA-Z0-9]*)$")
 
+debug_mode = True
+
+
+def debug_print(*value):
+    if debug_mode:
+        print(*value)
+
 
 # Get the parse tree of the given expression.
 def expression_parser(exp):
@@ -244,12 +251,12 @@ def generate_sweep_events(_transitions):
     transition_to_sweep_events = []
 
     # Iterate over all the transitions and generate events based on the boolean operations.
-    print("Sweep event translations:")
+    debug_print("Sweep event translations:")
     for name, expression in transitions_parsed:
         transition_events = generate_expression_sweep_events(name, expression)
-        print(name, expression, transition_events)
+        debug_print(name, expression, transition_events)
         transition_to_sweep_events.extend([transition_events])
-    print()
+    debug_print()
 
     events = []
     for event_list in transition_to_sweep_events:
@@ -449,65 +456,105 @@ def generate_java_code(decision_tree):
 # print()
 # The transitions available to the state.
 transition_tests = [
+    # [
+    #     ("t1", "x >= 5")
+    # ],
+    # [
+    #     ("t1", "x <= 5")
+    # ],
+    # [
+    #     ("t1", "x == 5")
+    # ],
+    # [
+    #     ("t1", "x != 5")
+    # ],
+    # [
+    #     ("t1", "x >= 7"),
+    #     ("t2", "x <= 5")
+    # ],
+    # [
+    #     ("t1", "x >= 5"),
+    #     ("t2", "x <= 7")
+    # ],
+    # [
+    #     ("t1", "x == 5 || x == 8"),
+    #     ("t2", "x == 6 || x == 9"),
+    # ],
+    # [
+    #     ("t1", "x == 5 && x == 8")
+    # ],
+    # [
+    #     ("t1", "x >= 10"),
+    #     ("t2", "x == 5 || x == 8"),
+    #     ("t3", "x < 5"),
+    #     ("t4", "x >= 7 && x <= 9"),
+    #     ("t5", "x <= 7 && x >= 9"),
+    #     ("t6", "x > 20 || x < 0"),
+    #     ("t7", "x < 20 || x > 0"),
+    #     ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
+    # ],
+    # [
+    #     ("t1", "x >= 7.01"),
+    #     ("t2", "x <= 5.99")
+    # ],
     [
-        ("t1", "x >= 5")
+        ("t1", "x >= -1.72 || x < 12.1"),
+        ("t2", "x <= 5.99")
     ],
-    [
-        ("t1", "x <= 5")
-    ],
-    [
-        ("t1", "x == 5")
-    ],
-    [
-        ("t1", "x != 5")
-    ],
-    [
-        ("t1", "x >= 7"),
-        ("t2", "x <= 5")
-    ],
-    [
-        ("t1", "x >= 5"),
-        ("t2", "x <= 7")
-    ],
-    [
-        ("t1", "x == 5 || x == 8"),
-        ("t2", "x == 6 || x == 9"),
-    ],
-    [
-        ("t1", "x == 5 && x == 8")
-    ],
-    [
-        ("t1", "x >= 10"),
-        ("t2", "x == 5 || x == 8"),
-        ("t3", "x < 5"),
-        ("t4", "x >= 7 && x <= 9"),
-        ("t5", "x <= 7 && x >= 9"),
-        ("t6", "x > 20 || x < 0"),
-        ("t7", "x < 20 || x > 0"),
-        ("t8", "((x >= 0 && x <= 2) || (x >= 4 && x <= 6)) && ((x >= 1 && x <= 3) || (x >= 5 && x <= 7))")
-    ]
 ]
 
-for transitions in transition_tests:
-    print("#"*80)
+for transitions in transition_tests[:0]:
+    debug_print("#"*80)
 
-    print("Transitions: ")
-    print(transitions)
-    print()
+    debug_print("Transitions: ")
+    debug_print(transitions)
+    debug_print()
 
     _segments = execute_sweep(transitions)
 
-    print("Segments:")
-    print(_segments)
-    print()
+    debug_print("Segments:")
+    debug_print(_segments)
+    debug_print()
 
-    print("Decision tree:")
-    print(get_decision_tree(_segments))
-    print()
+    debug_print("Decision tree:")
+    debug_print(get_decision_tree(_segments))
+    debug_print()
 
-    print("Java code:")
-    print("<code segment start>")
-    print(generate_java_code(get_decision_tree(_segments)))
-    print("<code end>")
+    debug_print("Java code:")
+    debug_print("<code segment start>")
+    debug_print(generate_java_code(get_decision_tree(_segments)))
+    debug_print("<code end>")
 
-    print("#"*80)
+    debug_print("#"*80)
+
+
+# from sympy import *
+# x, y = symbols('x y')
+# sol = solve(["x <= 5", "x <= 5"], x) #right hand side is 0 and we solve for x
+# sol = solve(["5 <= 7"], y) #right hand side is 0 and we solve for x
+# print(sol)
+
+# Relational.ValidRelationOperator = {
+#     None: Equality,
+#     '==': Equality,
+#     'eq': Equality,
+#     '!=': Unequality,
+#     '<>': Unequality,
+#     'ne': Unequality,
+#     '>=': GreaterThan,
+#     'ge': GreaterThan,
+#     '<=': LessThan,
+#     'le': LessThan,
+#     '>': StrictGreaterThan,
+#     'gt': StrictGreaterThan,
+#     '<': StrictLessThan,
+#     'lt': StrictLessThan,
+# }
+
+# a = Equality(x*(y + 1), 6)
+# b = GreaterThan(2*x*y + 2*x, 12)
+# print(solve(a, (x, y)) == solve(b, (x, y)))
+
+# sol = solve(["Eq(x + y, 7)"], (x, y))
+# print(a, b)
+

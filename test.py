@@ -109,6 +109,12 @@ class TestUnionOperations(unittest.TestCase):
         result = merge_event_lists_union(lhs, rhs)
         self.assertEqual([('x', 0, 0, 1, 't1'), ('x', 10, 1, 1, 't1')], result)
 
+    def test_union_closed_ranges_3(self):
+        lhs = [('x', -1.72, 0, 1, 't1'), ('x', float('inf'), 1, 1, 't1')]
+        rhs = [('x', float('-inf'), 0, 1, 't1'), ('x', 12.1, 1, 0, 't1')]
+        result = merge_event_lists_union(lhs, rhs)
+        self.assertEqual([('x', float('-inf'), 0, 1, 't1'), ('x', float('inf'), 1, 1, 't1')], result)
+
     def test_union_contained_closed_ranges_1(self):
         lhs = [('x', 0, 0, 1, 't1'), ('x', 5, 1, 1, 't1')]
         rhs = [('x', 0, 0, 1, 't1'), ('x', 2, 1, 1, 't1')]

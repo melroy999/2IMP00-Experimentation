@@ -2,5 +2,6 @@
 .cache/
 .idea/
 .coverage/
+__pycache__/
 
 .idea/workspace.xml
