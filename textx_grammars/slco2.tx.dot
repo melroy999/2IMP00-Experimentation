@@ -1,0 +1,151 @@
+
+    digraph xtext {
+    fontname = "Bitstream Vera Sans"
+    fontsize = 8
+    node[
+        shape=record,
+        style=filled,
+        fillcolor=aliceblue
+    ]
+    nodesep = 0.3
+    edge[dir=black,arrowtail=empty]
+
+
+140720877381760 -> 140720877362624[headlabel="type "]
+140720877381760 -> 140720877391504[arrowtail=diamond, dir=both, headlabel="assignments 0..*"]
+140720877381760[ label="{Object|+name:NID\l}"]
+
+140720877391504 -> 140720878614624[headlabel="left "]
+140720877391504[ label="{Initialisation|+right:OBJECT\l+rights:list[OBJECT]\l}"]
+
+140720878580656[ label="{Delay|+length:INT\l}"]
+
+140720878524544 -> 140720878597840[headlabel="act "]
+140720878524544[ label="{DoAction|}"]
+
+140720878487872[ label="{State|+name:NID\l}"]
+
+140720878587328 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="index "]
+140720878587328[ label="{ExpressionRef|+ref:NID\l}"]
+
+140720878520176[ label="{*Statement|}"]
+140720878520176 -> 140720877433232 [dir=back]
+140720878520176 -> 140720877445328 [dir=back]
+140720878520176 -> 140720877463264 [dir=back]
+140720878520176 -> 140720878580656 [dir=back]
+140720878520176 -> 140720878531216 [dir=back]
+140720878520176 -> 140720877476304 [dir=back]
+140720878520176 -> 140720878524544 [dir=back]
+
+140720877535296[ label="{Type|+base:STRING\l+size:INT\l}"]
+
+140720877408192 -> 140720877535296[arrowtail=diamond, dir=both, headlabel="type 0..*"]
+140720877408192 -> 140720877381760[headlabel="source "]
+140720877408192 -> 140720878493776[headlabel="port0 "]
+140720877408192 -> 140720877381760[headlabel="target "]
+140720877408192 -> 140720878493776[headlabel="port1 "]
+140720877408192[ label="{Channel|+name:NID\l+synctype:STRING\l+size:INT\l+losstype:STRING\l}"]
+
+140720878465840 -> 140720878614624[arrowtail=diamond, dir=both, headlabel="variables 0..*"]
+140720878465840 -> 140720878487872[arrowtail=diamond, dir=both, headlabel="initialstate "]
+140720878465840 -> 140720878487872[arrowtail=diamond, dir=both, headlabel="states 0..*"]
+140720878465840 -> 140720878499680[arrowtail=diamond, dir=both, headlabel="transitions 0..*"]
+140720878465840[ label="{StateMachine|+name:NID\l}"]
+
+140720877433232 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="guard "]
+140720877433232 -> 140720878531216[arrowtail=diamond, dir=both, headlabel="assignments 0..*"]
+140720877433232[ label="{Composite|}"]
+
+140720878531216 -> 140720878603744[arrowtail=diamond, dir=both, headlabel="left "]
+140720878531216 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="right "]
+140720878531216[ label="{Assignment|}"]
+
+140720877337712 -> 140720878597840[arrowtail=diamond, dir=both, headlabel="actions 1..*"]
+140720877337712 -> 140720877362624[arrowtail=diamond, dir=both, headlabel="classes 0..*"]
+140720877337712 -> 140720877381760[arrowtail=diamond, dir=both, headlabel="objects 0..*"]
+140720877337712 -> 140720877408192[arrowtail=diamond, dir=both, headlabel="channels 0..*"]
+140720877337712[ label="{SLCOModel|+name:NID\l}"]
+
+140720878614624 -> 140720877535296[arrowtail=diamond, dir=both, headlabel="type "]
+140720878614624[ label="{Variable|+name:NID\l+defvalue:OBJECT\l+defvalues:list[OBJECT]\l}"]
+
+140720877362624 -> 140720878614624[arrowtail=diamond, dir=both, headlabel="variables 0..*"]
+140720877362624 -> 140720878493776[arrowtail=diamond, dir=both, headlabel="ports 0..*"]
+140720877362624 -> 140720878465840[arrowtail=diamond, dir=both, headlabel="statemachines 0..*"]
+140720877362624[ label="{Class|+name:NID\l}"]
+
+140720878603744 -> 140720878614624[headlabel="var "]
+140720878603744 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="index "]
+140720878603744[ label="{VariableRef|}"]
+
+140720877550416[ label="{Keyword|do\|actions\|model\|classes\|ports\|state machines\|variables\|initial\|state\|transitions\|from\|to\|send\|receive\|objects\|channels\|Boolean\|Integer\|Byte\|async\|sync\|lossless\|lossy\|between\|and\|:=\|after\|ms\|not\|-\|+\|or\|xor\|and\|==\|\<\>\|\<=\|\>=\|\<\|\>\|mod\|*\|/\|**\|true\|false}"]
+
+140720877463264 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="params 0..*"]
+140720877463264 -> 140720878493776[headlabel="target "]
+140720877463264[ label="{SendSignal|+signal:NID\l}"]
+
+140720878499680 -> 140720878487872[headlabel="source "]
+140720878499680 -> 140720878487872[headlabel="target "]
+140720878499680 -> 140720878520176[arrowtail=diamond, dir=both, headlabel="statements 0..*"]
+140720878499680[ label="{Transition|+priority:INT\l}"]
+
+140720877445328 -> 140720878603744[arrowtail=diamond, dir=both, headlabel="params 0..*"]
+140720877445328 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="guard "]
+140720877445328 -> 140720878493776[headlabel="target "]
+140720877445328[ label="{ReceiveSignal|+signal:NID\l}"]
+
+140720878597840[ label="{Action|+name:NID\l}"]
+
+140720877476304 -> 140720877494736[arrowtail=diamond, dir=both, headlabel="left "]
+140720877476304 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="right "]
+140720877476304[ label="{Expression|+op:STRING\l}"]
+
+140720877523440 -> 140720877476304[arrowtail=diamond, dir=both, headlabel="body "]
+140720877523440 -> 140720878587328[arrowtail=diamond, dir=both, headlabel="ref "]
+140720877523440[ label="{Primary|+sign:STRING\l+value:OBJECT\l}"]
+
+140720878628208[ label="{NID| ID}"]
+
+140720877512160 -> 140720877523440[arrowtail=diamond, dir=both, headlabel="left "]
+140720877512160 -> 140720877512160[arrowtail=diamond, dir=both, headlabel="right "]
+140720877512160[ label="{ExprPrec1|+op:STRING\l}"]
+
+140720875846848 -> 140720877512160[arrowtail=diamond, dir=both, headlabel="left "]
+140720875846848 -> 140720875846848[arrowtail=diamond, dir=both, headlabel="right "]
+140720875846848[ label="{ExprPrec2|+op:STRING\l}"]
+
+140720878553248 -> 140720875846848[arrowtail=diamond, dir=both, headlabel="left "]
+140720878553248 -> 140720878553248[arrowtail=diamond, dir=both, headlabel="right "]
+140720878553248[ label="{ExprPrec3|+op:STRING\l}"]
+
+140720877494736 -> 140720878553248[arrowtail=diamond, dir=both, headlabel="left "]
+140720877494736 -> 140720877494736[arrowtail=diamond, dir=both, headlabel="right "]
+140720877494736[ label="{ExprPrec4|+op:STRING\l}"]
+
+140720878493776[ label="{Port|+name:NID\l}"]
+
+140720878311312[ label="{*OBJECT|}"]
+140720878311312 -> 140720878307712 [dir=back]
+
+140720878288944[ label="{STRING|}"]
+
+140720878307712[ label="{BASETYPE|}"]
+140720878307712 -> 140720878303344 [dir=back]
+140720878307712 -> 140720878292544 [dir=back]
+140720878307712 -> 140720878285344 [dir=back]
+140720878307712 -> 140720878288944 [dir=back]
+
+140720878296144[ label="{INT|}"]
+
+140720878299744[ label="{FLOAT|}"]
+
+140720878303344[ label="{NUMBER|}"]
+140720878303344 -> 140720878299744 [dir=back]
+140720878303344 -> 140720878296144 [dir=back]
+
+140720878292544[ label="{BOOL|}"]
+
+140720878285344[ label="{ID|}"]
+
+
+}

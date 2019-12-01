@@ -1,0 +1,29 @@
+model Testcycle {
+    actions a b
+
+	classes
+	P {
+	  variables Boolean[2] x Integer y
+	  state machines
+		SMC {
+		  	variables Integer i
+			initial SMC0 states SMC1
+			transitions
+				from SMC0 to SMC0 {
+					[not x[i]; i := i+1; x[i]:=true; i:= 0; x[0]:= False]
+				}
+				from SMC0 to SMC0 {
+          			i := y;
+        		}
+		}
+		Com {
+				variables Integer lx := 0
+				initial Com0 states Com1 Com2
+				transitions
+					1: from Com0 to Com0 {
+						x[0] = False;
+					}
+		}
+	}
+	objects p: P(x:=[False,True],y:=1)
+}

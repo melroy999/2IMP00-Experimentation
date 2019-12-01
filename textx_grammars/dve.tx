@@ -1,0 +1,110 @@
+DVEModel:
+	(declarations+=Declaration)+
+	'system' 'async' ';'
+;
+
+Declaration:
+	  VarList
+	| Process
+	| ChannelList
+;
+
+Comment:
+  /\/\/.*$/
+;
+
+Process:
+	'process' name=ID '{'
+		varlists*=VarList // VarList includes the ';'
+		'state' states+=State[','] ';'
+		'init' init=[State] ';'
+		'trans' transitions+=Transition[','] ';'
+	'}'
+;
+
+ChannelList:
+	'channel' channels+=Channel[','] ';'
+;
+
+Channel:
+	name=ID
+;
+
+State:
+	name=ID
+;
+
+Transition:
+	source=[State] '->' target=[State] '{'
+	('guard'  guard=Expression ';')?
+	(
+		  ('effect' (effects+=Statement)+)?
+		& ('sync' channel=[Channel] ('?'|'!'))?
+	)
+	'}'
+;
+
+Statement :
+  (AssignmentSequence /*| Expression*/) ';'
+;
+
+VarList:
+	type=PrimitiveType
+	variables+=Var[','] ';'
+;
+
+Var:
+	name=ID
+	('[' length=INT ']')?
+	('=' (initialValue=Expression|initialValue=ArrayConstantExpression))?
+;
+
+AssignmentSequence:
+	assignments+=Assignment[',']
+;
+
+Assignment:
+	variable=[Var] ('[' index=Expression ']')? '=' expression = Expression
+;
+
+PrimitiveType:
+	base = 'byte' | base = 'int' | base = 'boolean'
+;
+
+Expression:
+  left=ExprPrec3 ((op='=='|op='!='|op='<='|op='>='|op='<'|op='>') right=Expression)?
+;
+
+ExprPrec3:
+  left=ExprPrec2 ((op='+'|op='-'|op='or'|op='and'|op='&&'|op='||') right=ExprPrec3)?
+;
+
+ExprPrec2:
+  left=ExprPrec1 ((op='*'|op='/'|op='%') right=ExprPrec2)?
+;
+
+ExprPrec1:
+  left=Primary ((op='**') right=ExprPrec1)?
+;
+
+Primary :
+  BooleanConstantExpression |
+  IntegerConstantExpression |
+  VariableExpression |
+  BracketExpression;
+
+ArrayConstantExpression:
+	'{' values+=Expression[','] '}'
+;
+
+BooleanConstantExpression :
+  value = BOOL;
+
+IntegerConstantExpression :
+  value = INT;
+
+VariableExpression :
+  variable=[Var] ('[' index=Expression ']')?;
+
+BracketExpression:
+  "(" expression=Expression ")";
