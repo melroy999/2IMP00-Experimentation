@@ -1,6 +1,6 @@
 # SLCO 2.0 to multi-threaded Java transformation, limited to SLCO models consisting of a single object
 import os
-import json
+import copy
 from slcolib import *
 
 
@@ -8,106 +8,35 @@ from slcolib import *
 this_folder = dirname(__file__)
 
 
-def to_simple_ast(ast, variables):
+def to_simple_ast(ast):
     """Convert the xtext AST to a simpler and more tidy format"""
     class_name = ast.__class__.__name__
     if class_name == "Assignment":
-        return ":=", to_simple_ast(ast.left, variables), to_simple_ast(ast.right, variables)
+        return ":=", to_simple_ast(ast.left), to_simple_ast(ast.right)
     elif class_name in ["Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
         if ast.right is None:
-            return to_simple_ast(ast.left, variables)
+            return to_simple_ast(ast.left)
         else:
-            return ast.op, to_simple_ast(ast.left, variables), to_simple_ast(ast.right, variables)
+            return ast.op, to_simple_ast(ast.left), to_simple_ast(ast.right)
     elif class_name == "Primary":
         if ast.value is not None:
             return ast.value
         elif ast.ref is not None:
-            return to_simple_ast(ast.ref, variables)
+            return to_simple_ast(ast.ref)
         else:
-            return to_simple_ast(ast.body, variables)
+            return to_simple_ast(ast.body)
     elif class_name == "ExpressionRef":
-        # Find the variable that is being referred to.
-        variable_type = next((_v.type.base for _v in variables if _v.name == ast.ref), None)
-        if variable_type is None:
-            raise Exception("Variable %s is undefined in the scope of the class/state machine." % ast.ref)
-
         if ast.index is None:
-            return variable_type, ast.ref
+            return "Var", ast.ref
         else:
-            return variable_type + "[]", ast.ref, to_simple_ast(ast.index, variables)
+            return "Var[]", ast.ref, to_simple_ast(ast.index)
     elif class_name == "VariableRef":
         if ast.index is None:
-            return ast.var.type.base, ast.var.name
+            return "Var", ast.var.name
         else:
-            return ast.var.type.base + "[]", ast.var.name, to_simple_ast(ast.index, variables)
+            return "Var[]", ast.var.name, to_simple_ast(ast.index)
     else:
         raise Exception("NYI")
-
-
-def get_statement_dict(model, variables):
-    class_name = model.__class__.__name__
-
-    statement_dict = {
-        "type": class_name
-    }
-
-    if class_name == "Composite":
-        statement_dict["guard"] = get_statement_dict(model.guard, variables) if model.guard is not None else None
-        statement_dict["assignments"] = [get_statement_dict(_s, variables) for _s in model.assignments]
-    else:
-        statement_dict["ast"] = to_simple_ast(model, variables)
-
-    return statement_dict
-
-
-def get_transition_dict(model, variables):
-    """Construct a dictionary for the transitions, grouped by source node"""
-    model.sort(key=lambda v: (v.source.name, v.target.name))
-
-    transition_dict = {}
-    for _t in model:
-        source = _t.source.name
-        target = _t.target.name
-        if source not in transition_dict:
-            transition_dict[source] = []
-        transition_data = {
-            "source": source,
-            "target": target,
-            "statements": [get_statement_dict(_s, variables) for _s in _t.statements]
-        }
-        transition_dict[source].append(transition_data)
-
-    return transition_dict
-
-
-def correct_missing_variables(ast, variables):
-    return 0
-
-
-def construct_model_summary(model):
-    meta_data = {}
-
-    # Construct the dictionary acting as the AST.
-    for _class in model.classes:
-        meta_data[_class.name] = {
-            "variables": {
-                _v.name: (_v.name, _v.type.base, _v.type.size) for _v in _class.variables
-            },
-            "state_machines": {
-                _sm.name: {
-                    "variables": {
-                        _v.name: (_v.name, _v.type.base, _v.type.size) for _v in _sm.variables
-                    },
-                    "states": [
-                        _v.name for _v in _sm.states
-                    ],
-                    "initial_state": _sm.initialstate.name,
-                    "transitions": get_transition_dict(_sm.transitions, _class.variables + _sm.variables)
-                } for _sm in _class.statemachines
-            }
-        }
-
-    return meta_data
 
 
 def create_shallow_ast_copy(model):
@@ -131,13 +60,79 @@ def create_shallow_ast_copy(model):
     return type(model.__class__.__name__, (), properties)()
 
 
+def transform_statement(_s):
+    """Convert the statement to a more workable format"""
+    class_name = _s.__class__.__name__
+
+    if class_name == "Composite":
+        _s.guard = to_simple_ast(_s.guard)
+        _s.assignments = [transform_statement(_a) for _a in _s.assignments]
+    elif class_name in ["Expression", "Assignment"]:
+        return to_simple_ast(_s)
+
+    return _s
+
+
+def transform_transition(_t):
+    """Convert the transition to a more workable format"""
+    # We determine whether a transition is guarded by looking whether the first statement is an expression.
+    first_statement = _t.statements[0]
+    class_name = first_statement.__class__.__name__
+
+    transition_guard = None
+    if class_name == "Composite":
+        transition_guard = to_simple_ast(first_statement.guard)
+    elif class_name == "Expression":
+        transition_guard = to_simple_ast(first_statement)
+
+    # Create a mutable copy.
+    properties = {
+        "source": _t.source.name,
+        "target": _t.target.name,
+        "priority": _t.priority,
+        "guard": transition_guard,
+        "statements": [transform_statement(_s) for _s in _t.statements]
+    }
+
+    return type(_t.__class__.__name__, (), properties)()
+
+
+# noinspection SpellCheckingInspection
+def transform_state_machine(_sm):
+    """Convert the state machine to a more workable format"""
+    _sm.initialstate = _sm.initialstate.name
+    _sm.states = [_s.name for _s in _sm.states]
+    _sm.variables = {_v.name: _v for _v in _sm.variables}
+
+    adjacency_list = {
+        _s: [
+            transform_transition(_t) for _t in _sm.transitions if _t.source.name == _s
+        ] for _s in _sm.states
+    }
+    _sm.transitions = adjacency_list
+
+
+def transform_model(_ast):
+    """Transform the model such that it provides all the data required for the code conversion"""
+    for _c in _ast.classes:
+        _c.variables = {_v.name: _v for _v in _c.variables}
+
+        for _sm in _c.statemachines:
+            transform_state_machine(_sm)
+
+    return _ast
+
+
 def preprocess(model):
     """"Gather additional data about the model"""
     model = create_shallow_ast_copy(model)
 
-    meta_data = construct_model_summary(model)
+    # Extend and transform the model to one fitting our purpose.
+    transform_model(model)
 
-    print(meta_data)
+    # meta_data = construct_model_summary(model)
+
+    # print(meta_data)
 
     return model
 
