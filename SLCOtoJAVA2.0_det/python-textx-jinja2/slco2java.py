@@ -45,11 +45,13 @@ def to_simple_ast(ast, variables):
 
 
 def get_statement_dict(model, variables):
+    class_name = model.__class__.__name__
+
     statement_dict = {
-        "type": model.__class__.__name__
+        "type": class_name
     }
 
-    if statement_dict["type"] == "Composite":
+    if class_name == "Composite":
         statement_dict["guard"] = get_statement_dict(model.guard, variables) if model.guard is not None else None
         statement_dict["assignments"] = [get_statement_dict(_s, variables) for _s in model.assignments]
     else:
@@ -108,8 +110,31 @@ def construct_model_summary(model):
     return meta_data
 
 
+def create_shallow_ast_copy(model):
+    """Only gather the data that we are interested in from the textX AST"""
+    if model is None:
+        return None
+
+    if type(model) in (str, int, float, bool):
+        return model
+
+    properties = {}
+    for key in dir(model):
+        if (not key.startswith("_")) and (not callable(getattr(model, key))) and (key not in ["parent"]):
+            attr_value = getattr(model, key)
+
+            if type(attr_value) is list:
+                properties[key] = [create_shallow_ast_copy(v) for v in attr_value]
+            else:
+                properties[key] = create_shallow_ast_copy(attr_value)
+
+    return type(model.__class__.__name__, (), properties)()
+
+
 def preprocess(model):
     """"Gather additional data about the model"""
+    model = create_shallow_ast_copy(model)
+
     meta_data = construct_model_summary(model)
 
     print(meta_data)
