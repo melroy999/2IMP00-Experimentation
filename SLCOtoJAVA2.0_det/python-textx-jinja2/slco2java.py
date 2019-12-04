@@ -150,46 +150,85 @@ class Decision(Enum):
         return self.__str__()
 
 
-def find_deterministic_groups(transitions, _vars):
+def group_overlapping_transitions(transitions, _vars, truth_matrices, negation=False):
+    """Divide the transitions into groups, based on the equality measure"""
+    if len(transitions) == 1:
+        return transitions
+
+    # Transitions are in the same group if they have an equality relation with one another.
+    groupings = []
+
+    processed_transitions = set()
+    queue = set()
+    for _t in transitions:
+        if _t not in processed_transitions:
+            # Find all transitions that have an equality relation with this _t.
+            queue.update([_t2 for _t2 in transitions if truth_matrices["and"][_t][_t2] != negation])
+
+            current_group_transitions = []
+
+            while len(queue) > 0:
+                _t2 = queue.pop()
+
+                if _t2 not in processed_transitions:
+                    # Add the transition to the current group.
+                    current_group_transitions += [_t2]
+
+                    # Find all transitions that are related to _t.
+                    queue.update([_t3 for _t3 in transitions if truth_matrices["and"][_t2][_t3] != negation])
+
+                    # We do not want to visit the queue head again.
+                    processed_transitions.add(_t2)
+
+            # Add the group to the list of groupings.
+            groupings += [group_overlapping_transitions(current_group_transitions, _vars, truth_matrices, not negation)]
+
+    # TODO: can we split the sub-groupings further?
+    # Idea: group by left-hand variable name.
+    # Idea: certain transitions in the groupings may be deterministic to one another.
+    print(Decision.DET if not negation else Decision.N_DET, groupings)
+
+    return Decision.DET if not negation else Decision.N_DET, groupings
+
+
+def find_deterministic_groups(transitions, _vars, truth_matrices):
     """Find groups that are deterministic in regards to one another"""
     # Check whether we have a list of transitions to dissect.
     if len(transitions) <= 1:
-        return None if len(transitions) == 0 else (Decision.DET, transitions)
-
-    # Check which transitions have overlapping guards by simply taking the AND between the guards.
-    # TODO recalculations are useless, since the values will not change.
-    has_overlap = {
-        _t: {
-            _t2: do_z3_and_check(_t.guard, _t2.guard, _vars) for _t2 in transitions
-        } for _t in transitions
-    }
+        return Decision.DET, transitions
 
     # Do any of the transitions always possibly overlap with the others transitions?
-    invariably_overlapping_transitions = [_t for _t in transitions if all(has_overlap[_t].values())]
-
-    # TODO what do transitions in the invariably_overlapping_transitions list have as a property?
-    # - There exists at least one value for which all transitions in the list are simultaneously active.
+    # Keep in mind that the truth table has all transitions--only select those that we are examining.
+    invariably_overlapping_transitions = [
+        _t for _t in transitions if all(
+            truth_matrices["and"][_t][_t2] for _t2 in transitions
+        )
+    ]
 
     # If we have several invariably active transitions, but not all transitions are, divide and conquer.
     if len(invariably_overlapping_transitions) == 0:
+        # Dissect the group of transitions and find a way to split if possible.
+        groupings = group_overlapping_transitions(transitions, _vars, truth_matrices)
+
         # TODO add smart logic to divide the transitions into smaller groups.
-        print("No invariably active transitions")
-        return Decision.N_DET, transitions
+        return Decision.DET, groupings
     else:
         # Find the transitions that are not invariably active.
         remaining_transitions = [_t for _t in transitions if _t not in invariably_overlapping_transitions]
 
-        # Recursively solve for the non invariably active transitions.
-        sub_groupings = find_deterministic_groups(remaining_transitions, _vars)
+        # Recursively solve for the non invariably overlapping transitions.
+        if len(remaining_transitions) > 0:
+            remaining_groupings = [find_deterministic_groups(remaining_transitions, _vars, truth_matrices)]
+        else:
+            remaining_groupings = []
 
         # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
-        return Decision.N_DET, invariably_overlapping_transitions + [] if sub_groupings is None else [sub_groupings]
+        return Decision.N_DET, invariably_overlapping_transitions + remaining_groupings
 
+        # TODO what do transitions in the invariably_overlapping_transitions list have as a property?
+        # - There exists at least one value for which all transitions in the list are simultaneously active.
         # TODO: This case does not necessarily have to be parallel...
-        # x <= 1, x <= 2, x <= 3 are all invariably overlapping. Partial determinism is possible.
-
-    # if len(invariably_active_transitions) > 0:
-    #     print("[%s] have overlap with all other transitions." % [_t.guard for _t in invariably_active_transitions])
+        # - x <= 1, x <= 2, x <= 3 are all invariably overlapping. Partial determinism is possible.
 
 
 def solve_determinism(model):
@@ -199,18 +238,48 @@ def solve_determinism(model):
             for _s, transitions in _sm.transitions.items():
                 _vars = {**_c.variables, **_sm.variables}
 
-                # Compare each transition to the other.
                 if len(transitions) > 0:
                     # First check if any of the transitions are vacuously true.
                     vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard, _vars)]
                     remaining_transitions = [_t for _t in transitions if _t not in vacuously_active_transitions]
-                    sub_groupings = find_deterministic_groups(remaining_transitions, _vars)
+
+                    if len([_t for _t in vacuously_active_transitions if _t.guard != True]) > 0:
+                        print("WARNING: The following guards hold vacuously true:")
+                        for _t in [_t for _t in vacuously_active_transitions if _t.guard != True]:
+                            print("\t- %s" % _t)
+
+                    # Create the truth matrices for the AND, XOR and implication operators.
+                    truth_matrices = {}
+                    for _o, _m in [("and", False), ("xor", True), ("=>", True)]:
+                        if _o == "=>":
+                            # Implication is non-symmetric, so we need to test both directions.
+                            truth_matrices[_o] = {
+                                _t: {
+                                    _t2: do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m) for _t2 in transitions
+                                } for _t in transitions
+                            }
+                        else:
+                            # We don't have to check both directions, since XOR and AND are symmetric.
+                            truth_matrices[_o] = {}
+                            for _t in transitions:
+                                truth_matrices[_o][_t] = {}
+                                for _t2 in transitions:
+                                    truth_evaluation = do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m)
+                                    truth_matrices[_o][_t][_t2] = truth_evaluation
+                                    if _t == _t2:
+                                        break
+                                    else:
+                                        truth_matrices[_o][_t2][_t] = truth_evaluation
+
+                    if len(remaining_transitions) > 0:
+                        sub_groupings = [find_deterministic_groups(remaining_transitions, _vars, truth_matrices)]
+                    else:
+                        sub_groupings = []
 
                     if len(vacuously_active_transitions) > 0:
-                        vacuously_active_transitions += [] if sub_groupings is None else [sub_groupings]
-                        groupings = Decision.N_DET, vacuously_active_transitions
+                        groupings = Decision.N_DET, vacuously_active_transitions + sub_groupings
                     else:
-                        groupings = sub_groupings
+                        groupings = sub_groupings[0]
 
                     print(groupings)
 

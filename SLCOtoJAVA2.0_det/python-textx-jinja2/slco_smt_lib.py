@@ -123,11 +123,12 @@ def do_z3_truth_check(ast, _vars, _for_all=True):
     return result
 
 
-def do_z3_and_check(ast1, ast2, _vars, _for_all=False):
+def do_z3_opr_check(binary_operator, ast1, ast2, _vars, _for_all=False):
     _parsed_1, _used_vars_1 = to_smt_format_string(ast1)
     _parsed_2, _used_vars_2 = to_smt_format_string(ast2)
     _var_declarations = generate_z3_variable_declarations({**_used_vars_1, **_used_vars_2}, _vars)
-    _parsed = "(and %s %s)" % (_parsed_1, _parsed_2)
+    _parsed = "(%s %s %s)" % (binary_operator, _parsed_1, _parsed_2)
+
     if _for_all:
         _parsed = "(not %s)" % _parsed
     _assertion = to_z3_assertion(_parsed, _var_declarations)
