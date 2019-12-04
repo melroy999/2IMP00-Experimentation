@@ -1,10 +1,11 @@
 # SLCO 2.0 to multi-threaded Java transformation, limited to SLCO models consisting of a single object
-import os
-import copy
-from slcolib import *
-
 
 # import libraries
+from slco_smt_lib import *
+from slcolib import *
+import os
+from timeit import default_timer as timer
+
 this_folder = dirname(__file__)
 
 
@@ -20,21 +21,35 @@ def to_simple_ast(ast):
             return ast.op, to_simple_ast(ast.left), to_simple_ast(ast.right)
     elif class_name == "Primary":
         if ast.value is not None:
-            return ast.value
+            if ast.sign == "-":
+                return -1 * ast.value
+            elif ast.sign == "not":
+                return not ast.value
+            else:
+                return ast.value
         elif ast.ref is not None:
+            if ast.sign == "-":
+                return "-", 0, to_simple_ast(ast.ref)
+            if ast.sign == "not":
+                return "!", to_simple_ast(ast.ref)
             return to_simple_ast(ast.ref)
         else:
-            return to_simple_ast(ast.body)
+            if ast.sign == "-":
+                return "-", 0, to_simple_ast(ast.body)
+            if ast.sign == "not":
+                return "!", to_simple_ast(ast.body)
+            else:
+                return to_simple_ast(ast.body)
     elif class_name == "ExpressionRef":
         if ast.index is None:
-            return "Var", ast.ref
+            return "var", ast.ref
         else:
-            return "Var[]", ast.ref, to_simple_ast(ast.index)
+            return "var[]", ast.ref, to_simple_ast(ast.index)
     elif class_name == "VariableRef":
         if ast.index is None:
-            return "Var", ast.var.name
+            return "var", ast.var.name
         else:
-            return "Var[]", ast.var.name, to_simple_ast(ast.index)
+            return "var[]", ast.var.name, to_simple_ast(ast.index)
     else:
         raise Exception("NYI")
 
@@ -90,7 +105,7 @@ def transform_transition(_t):
         "source": _t.source.name,
         "target": _t.target.name,
         "priority": _t.priority,
-        "guard": transition_guard,
+        "guard": True if transition_guard is None else transition_guard,
         "statements": [transform_statement(_s) for _s in _t.statements]
     }
 
@@ -103,6 +118,7 @@ def transform_state_machine(_sm):
     _sm.initialstate = _sm.initialstate.name
     _sm.states = [_s.name for _s in _sm.states]
     _sm.variables = {_v.name: _v for _v in _sm.variables}
+    _sm.transitions.sort(key=lambda x: (x.source.name, x.target.name))
 
     adjacency_list = {
         _s: [
@@ -123,12 +139,42 @@ def transform_model(_ast):
     return _ast
 
 
+def solve_determinism(model):
+    """Observe the transitions in the model and determine which can be done deterministically"""
+    for _c in model.classes:
+        for _sm in _c.statemachines:
+            for _s, transitions in _sm.transitions.items():
+                _vars = {**_c.variables, **_sm.variables}
+
+                # Compare each transition to the other.
+                start = timer()
+                s = z3.Solver()
+                has_overlap = {
+                    _t: {
+                        _t2: do_z3_and_check(s, _t.guard, _t2.guard, _vars) for _t2 in transitions
+                    } for _t in transitions
+                }
+                end = timer()
+                print(end - start)
+
+    return model
+
+
 def preprocess(model):
     """"Gather additional data about the model"""
     model = create_shallow_ast_copy(model)
 
     # Extend and transform the model to one fitting our purpose.
     transform_model(model)
+
+    solve_determinism(model)
+
+    # for _c in model.classes:
+    #     for _sm in _c.statemachines:
+    #         for _s, transitions in _sm.transitions.items():
+    #             for _t in transitions:
+    #                 if _t.guard is not None:
+    #                     print(to_z3_format(_t.guard, {**_c.variables, **_sm.variables}))
 
     # meta_data = construct_model_summary(model)
 
@@ -150,9 +196,11 @@ def main(_args):
             print("Usage: pypy/python3 slco2java")
             print("")
             print("Transform an SLCO 2.0 model to a Java program.")
-            print("-v                                   produce a list of transition functions with Vercors annotations for formal verification")
+            print(
+                "-v                                   produce a list of transition functions with Vercors annotations for formal verification")
             print("-l <file>                            provide locking file for smart locking")
-            print("-c                                   produce a transition counter in the code, to make program executions finite")
+            print(
+                "-c                                   produce a transition counter in the code, to make program executions finite")
             sys.exit(0)
         else:
             _i = 0

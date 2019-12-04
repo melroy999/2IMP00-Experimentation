@@ -7,17 +7,17 @@ model Test {
 	  state machines
 		SM1 {
 		  variables Integer i
-			initial SMC0 states SMC1
-			transitions
-				from SMC0 to SMC1 {
-				  [not x[i]; i := i+1; x[i]:=i=2; i:= 3; x[0]:= False]
-				}
-				from SMC0 to SMC0 {
-                  true; i := 0;
-                }
-                from SMC1 to SMC0 {
-                }
-		}
+		  initial SMC0 states SMC1
+		  transitions
+			from SMC0 to SMC1 {
+			  [not x[i]; i := i+1; x[i]:=i=2; i:= 3; x[0]:= False]
+			}
+			from SMC0 to SMC0 {
+              true; i := 0;
+            }
+              from SMC1 to SMC0 {
+            }
+	    }
 		Com {
 				variables Integer lx := 0
 				initial Com0 states Com1 Com2
