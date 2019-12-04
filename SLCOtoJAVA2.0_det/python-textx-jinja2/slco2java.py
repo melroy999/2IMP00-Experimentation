@@ -139,6 +139,41 @@ def transform_model(_ast):
     return _ast
 
 
+def find_deterministic_groups(transitions, _vars):
+    """Find groups that are deterministic in regards to one another"""
+    # Check whether we have a list of transitions to dissect.
+    if len(transitions) <= 1:
+        return [] if len(transitions) == 0 else "^", transitions
+
+    # Check which transitions have overlapping guards by simply taking the AND between the guards.
+    has_overlap = {
+        _t: {
+            _t2: do_z3_and_check(_t.guard, _t2.guard, _vars) for _t2 in transitions
+        } for _t in transitions
+    }
+
+    # Do any of the transitions always overlap with the others transitions?
+    invariably_active_transitions = [_t for _t in transitions if all(has_overlap[_t].values())]
+
+    # If we have several invariably active transitions, but not all transitions are, divide and conquer.
+    if len(invariably_active_transitions) == 0:
+        # TODO add smart logic to divide the transitions into smaller groups.
+        print("No invariably active transitions")
+        return "||", transitions
+    elif len(invariably_active_transitions) < len(transitions):
+        # Find the transitions that are not invariably active.
+        remaining_transitions = [_t for _t in transitions if _t not in invariably_active_transitions]
+
+        # Recursively solve for the non invariably active transitions.
+        sub_groupings = find_deterministic_groups(remaining_transitions, _vars)
+
+        # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
+        return "||", invariably_active_transitions + [sub_groupings]
+
+    # if len(invariably_active_transitions) > 0:
+    #     print("[%s] have overlap with all other transitions." % [_t.guard for _t in invariably_active_transitions])
+
+
 def solve_determinism(model):
     """Observe the transitions in the model and determine which can be done deterministically"""
     for _c in model.classes:
@@ -147,15 +182,9 @@ def solve_determinism(model):
                 _vars = {**_c.variables, **_sm.variables}
 
                 # Compare each transition to the other.
-                start = timer()
-                s = z3.Solver()
-                has_overlap = {
-                    _t: {
-                        _t2: do_z3_and_check(s, _t.guard, _t2.guard, _vars) for _t2 in transitions
-                    } for _t in transitions
-                }
-                end = timer()
-                print(end - start)
+                if len(transitions) > 0:
+                    groupings = find_deterministic_groups(transitions, _vars)
+                    print(groupings)
 
     return model
 

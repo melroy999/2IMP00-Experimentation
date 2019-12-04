@@ -2,6 +2,7 @@ import z3
 
 array_name_dictionary = {}
 conversion_cache = {}
+s = z3.Solver()
 
 
 def to_z3_format_rec(ast, _vars):
@@ -103,7 +104,7 @@ def to_z3_format(ast, _vars):
     return to_z3_object(_assertion)
 
 
-def do_z3_and_check(s, ast1, ast2, _vars, _for_all=False):
+def do_z3_and_check(ast1, ast2, _vars, _for_all=False):
     _parsed_1, _used_vars_1 = to_smt_format_string(ast1)
     _parsed_2, _used_vars_2 = to_smt_format_string(ast2)
     _var_declarations = generate_z3_variable_declarations({**_used_vars_1, **_used_vars_2}, _vars)
@@ -118,6 +119,6 @@ def do_z3_and_check(s, ast1, ast2, _vars, _for_all=False):
         result = s.check().r != z3.Z3_L_TRUE
     else:
         result = s.check().r != z3.Z3_L_FALSE
-    print(_parsed, result)
+    # print(_parsed, result)
     s.pop()
     return result
