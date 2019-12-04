@@ -1,6 +1,8 @@
 # SLCO 2.0 to multi-threaded Java transformation, limited to SLCO models consisting of a single object
 
 # import libraries
+from enum import Enum
+
 from slco_smt_lib import *
 from slcolib import *
 import os
@@ -106,7 +108,8 @@ def transform_transition(_t):
         "target": _t.target.name,
         "priority": _t.priority,
         "guard": True if transition_guard is None else transition_guard,
-        "statements": [transform_statement(_s) for _s in _t.statements]
+        "statements": [transform_statement(_s) for _s in _t.statements],
+        "__repr__": lambda self: "%s->%s[%s]" % (self.source, self.target, str(self.guard))
     }
 
     return type(_t.__class__.__name__, (), properties)()
@@ -139,36 +142,51 @@ def transform_model(_ast):
     return _ast
 
 
+class Decision(Enum):
+    DET = 0
+    N_DET = 1
+
+    def __repr__(self):
+        return self.__str__()
+
+
 def find_deterministic_groups(transitions, _vars):
     """Find groups that are deterministic in regards to one another"""
     # Check whether we have a list of transitions to dissect.
     if len(transitions) <= 1:
-        return [] if len(transitions) == 0 else "^", transitions
+        return None if len(transitions) == 0 else (Decision.DET, transitions)
 
     # Check which transitions have overlapping guards by simply taking the AND between the guards.
+    # TODO recalculations are useless, since the values will not change.
     has_overlap = {
         _t: {
             _t2: do_z3_and_check(_t.guard, _t2.guard, _vars) for _t2 in transitions
         } for _t in transitions
     }
 
-    # Do any of the transitions always overlap with the others transitions?
-    invariably_active_transitions = [_t for _t in transitions if all(has_overlap[_t].values())]
+    # Do any of the transitions always possibly overlap with the others transitions?
+    invariably_overlapping_transitions = [_t for _t in transitions if all(has_overlap[_t].values())]
+
+    # TODO what do transitions in the invariably_overlapping_transitions list have as a property?
+    # - There exists at least one value for which all transitions in the list are simultaneously active.
 
     # If we have several invariably active transitions, but not all transitions are, divide and conquer.
-    if len(invariably_active_transitions) == 0:
+    if len(invariably_overlapping_transitions) == 0:
         # TODO add smart logic to divide the transitions into smaller groups.
         print("No invariably active transitions")
-        return "||", transitions
-    elif len(invariably_active_transitions) < len(transitions):
+        return Decision.N_DET, transitions
+    else:
         # Find the transitions that are not invariably active.
-        remaining_transitions = [_t for _t in transitions if _t not in invariably_active_transitions]
+        remaining_transitions = [_t for _t in transitions if _t not in invariably_overlapping_transitions]
 
         # Recursively solve for the non invariably active transitions.
         sub_groupings = find_deterministic_groups(remaining_transitions, _vars)
 
         # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
-        return "||", invariably_active_transitions + [sub_groupings]
+        return Decision.N_DET, invariably_overlapping_transitions + [] if sub_groupings is None else [sub_groupings]
+
+        # TODO: This case does not necessarily have to be parallel...
+        # x <= 1, x <= 2, x <= 3 are all invariably overlapping. Partial determinism is possible.
 
     # if len(invariably_active_transitions) > 0:
     #     print("[%s] have overlap with all other transitions." % [_t.guard for _t in invariably_active_transitions])
@@ -183,7 +201,17 @@ def solve_determinism(model):
 
                 # Compare each transition to the other.
                 if len(transitions) > 0:
-                    groupings = find_deterministic_groups(transitions, _vars)
+                    # First check if any of the transitions are vacuously true.
+                    vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard, _vars)]
+                    remaining_transitions = [_t for _t in transitions if _t not in vacuously_active_transitions]
+                    sub_groupings = find_deterministic_groups(remaining_transitions, _vars)
+
+                    if len(vacuously_active_transitions) > 0:
+                        vacuously_active_transitions += [] if sub_groupings is None else [sub_groupings]
+                        groupings = Decision.N_DET, vacuously_active_transitions
+                    else:
+                        groupings = sub_groupings
+
                     print(groupings)
 
     return model
@@ -197,17 +225,6 @@ def preprocess(model):
     transform_model(model)
 
     solve_determinism(model)
-
-    # for _c in model.classes:
-    #     for _sm in _c.statemachines:
-    #         for _s, transitions in _sm.transitions.items():
-    #             for _t in transitions:
-    #                 if _t.guard is not None:
-    #                     print(to_z3_format(_t.guard, {**_c.variables, **_sm.variables}))
-
-    # meta_data = construct_model_summary(model)
-
-    # print(meta_data)
 
     return model
 

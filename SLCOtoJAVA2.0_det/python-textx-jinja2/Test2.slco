@@ -32,6 +32,23 @@ model Test {
 			from SMC0 to SMC1 {
 			  x[1] <= 3
 			}
+			from SMC0 to SMC1 {
+			  x[1] <= 4
+			}
+			from SMC0 to SMC1 {
+			  x[1] <= 5
+			}
+	    }
+	    SM3 {
+		  variables Integer[2] x
+		  initial SMC0 states SMC1
+		  transitions
+			from SMC0 to SMC1 {
+			  x[1] <= 3 || x[1] >= 3
+			}
+			from SMC0 to SMC1 {
+
+			}
 	    }
 	}
 	objects p: P(y:=1)
