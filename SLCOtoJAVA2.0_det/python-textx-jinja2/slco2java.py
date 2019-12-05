@@ -90,6 +90,24 @@ def transform_statement(_s):
     return _s
 
 
+def expression_to_string(ast):
+    if type(ast) in [str, int, float, bool]:
+        return ast
+    else:
+        operator, ops = ast[0], ast[1:]
+
+        if len(ops) == 2:
+            if operator == "var[]":
+                return "%s[%s]" % (expression_to_string(ops[0]), expression_to_string(ops[1]))
+            else:
+                return "%s %s %s" % (expression_to_string(ops[0]), operator, expression_to_string(ops[1]))
+        else:
+            if operator == "var":
+                return "%s" % (expression_to_string(ops[0]))
+            else:
+                return "%s (%s)" % (operator, expression_to_string(ops[1]))
+
+
 def transform_transition(_t):
     """Convert the transition to a more workable format"""
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
@@ -109,7 +127,7 @@ def transform_transition(_t):
         "priority": _t.priority,
         "guard": True if transition_guard is None else transition_guard,
         "statements": [transform_statement(_s) for _s in _t.statements],
-        "__repr__": lambda self: "%s->%s[%s]" % (self.source, self.target, str(self.guard))
+        "__repr__": lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard))
     }
 
     return type(_t.__class__.__name__, (), properties)()
@@ -172,10 +190,8 @@ def dissect_overlapping_transition_chain(transitions, _vars, truth_matrices):
     # Check if the groups can be split up more.
     groupings = [find_deterministic_groups(_v, _vars, truth_matrices) for _v in variables_to_transitions.values()]
 
-    print("DOTC", (Decision.N_DET, groupings))
-
     # The split needs to be resolved non-deterministically.
-    return Decision.N_DET, groupings
+    return (Decision.N_DET, groupings) if len(groupings) > 1 else groupings[0]
 
 
 def group_overlapping_transitions(transitions, _vars, truth_matrices):
@@ -214,12 +230,8 @@ def group_overlapping_transitions(transitions, _vars, truth_matrices):
             # Add the group to the list of groupings.
             groupings += [sub_groupings]
 
-    # TODO: can we split the sub-groupings further?
-    # Idea: group by left-hand variable name.
-    # Idea: certain transitions in the groupings may be deterministic to one another.
-    print("GOT", (Decision.DET, groupings))
-
-    return Decision.DET, groupings
+    # The result is always deterministic.
+    return (Decision.DET, groupings) if len(groupings) > 1 else groupings[0]
 
 
 def find_deterministic_groups(transitions, _vars, truth_matrices):
@@ -251,7 +263,40 @@ def find_deterministic_groups(transitions, _vars, truth_matrices):
             remaining_groupings = []
 
         # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
-        return Decision.N_DET, invariably_overlapping_transitions + remaining_groupings
+        choices = invariably_overlapping_transitions + remaining_groupings
+        return (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
+
+
+def print_decision_groups(tree, d=1):
+    if tree.__class__.__name__ == "Transition":
+        print("%s%s" % ("\t" * d, tree))
+    else:
+        choice_type, members = tree
+        print("%s%s" % ("\t" * d, choice_type))
+        for _t in sorted(members, key=lambda _t: _t.__class__.__name__ != "Transition"):
+            print_decision_groups(_t, d + 1)
+
+
+def compress_decision_group_tree(tree):
+    """Compress the decision group tree such that the decision type alternates per level"""
+    if tree.__class__.__name__ == "Transition":
+        return tree
+    else:
+        choice_type, members = tree
+
+        compressed_members = []
+        for _m in members:
+            _m = compress_decision_group_tree(_m)
+
+            if _m.__class__.__name__ == "Transition":
+                compressed_members.append(_m)
+            else:
+                if _m[0] != choice_type:
+                    compressed_members.append(_m)
+                else:
+                    compressed_members.extend(_m[1])
+
+        return choice_type, compressed_members
 
 
 def solve_determinism(model):
@@ -266,47 +311,57 @@ def solve_determinism(model):
                     vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard, _vars)]
                     remaining_transitions = [_t for _t in transitions if _t not in vacuously_active_transitions]
 
-                    if len([_t for _t in vacuously_active_transitions if _t.guard != True]) > 0:
+                    if len([_t for _t in vacuously_active_transitions if _t.guard is not True]) > 0:
                         print("WARNING: The following guards hold vacuously true:")
-                        for _t in [_t for _t in vacuously_active_transitions if _t.guard != True]:
+                        for _t in [_t for _t in vacuously_active_transitions if _t.guard is not True]:
                             print("\t- %s" % _t)
 
                     # Create the truth matrices for the AND, XOR and implication operators.
-                    truth_matrices = {}
-                    for _o, _m in [("and", False), ("xor", True), ("=>", True)]:
-                        if _o == "=>":
-                            # Implication is non-symmetric, so we need to test both directions.
-                            truth_matrices[_o] = {
-                                _t: {
-                                    _t2: do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m) for _t2 in transitions
-                                } for _t in transitions
-                            }
-                        else:
-                            # We don't have to check both directions, since XOR and AND are symmetric.
-                            truth_matrices[_o] = {}
-                            for _t in transitions:
-                                truth_matrices[_o][_t] = {}
-                                for _t2 in transitions:
-                                    truth_evaluation = do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m)
-                                    truth_matrices[_o][_t][_t2] = truth_evaluation
-                                    if _t == _t2:
-                                        break
-                                    else:
-                                        truth_matrices[_o][_t2][_t] = truth_evaluation
+                    truth_matrices = calculate_truth_matrices(_vars, transitions)
 
+                    sub_groupings = []
                     if len(remaining_transitions) > 0:
-                        sub_groupings = [find_deterministic_groups(remaining_transitions, _vars, truth_matrices)]
-                    else:
-                        sub_groupings = []
+                        sub_groupings.append(find_deterministic_groups(remaining_transitions, _vars, truth_matrices))
 
-                    if len(vacuously_active_transitions) > 0:
-                        groupings = Decision.N_DET, vacuously_active_transitions + sub_groupings
-                    else:
-                        groupings = sub_groupings[0]
+                    choices = vacuously_active_transitions + sub_groupings
+                    groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
+                    groupings = compress_decision_group_tree(groupings)
 
-                    print(groupings)
+                    print("Transitions:")
+                    for _t in transitions:
+                        print("\t- %s" % _t)
+                    print()
+
+                    print("Decisions:")
+                    print_decision_groups(groupings)
+                    print()
 
     return model
+
+
+def calculate_truth_matrices(_vars, transitions):
+    truth_matrices = {}
+    for _o, _m in [("and", False), ("xor", True), ("=>", True)]:
+        if _o == "=>":
+            # Implication is non-symmetric, so we need to test both directions.
+            truth_matrices[_o] = {
+                _t: {
+                    _t2: do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m) for _t2 in transitions
+                } for _t in transitions
+            }
+        else:
+            # We don't have to check both directions, since XOR and AND are symmetric.
+            truth_matrices[_o] = {}
+            for _t in transitions:
+                truth_matrices[_o][_t] = {}
+                for _t2 in transitions:
+                    truth_evaluation = do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m)
+                    truth_matrices[_o][_t][_t2] = truth_evaluation
+                    if _t == _t2:
+                        break
+                    else:
+                        truth_matrices[_o][_t2][_t] = truth_evaluation
+    return truth_matrices
 
 
 def preprocess(model):
