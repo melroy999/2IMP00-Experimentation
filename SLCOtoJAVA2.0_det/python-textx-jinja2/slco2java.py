@@ -150,14 +150,38 @@ class Decision(Enum):
         return self.__str__()
 
 
-def group_overlapping_transitions(transitions, _vars, truth_matrices, invert=False):
-    """Divide the transitions into groups, based on the equality measure"""
-    # TODO: The swapping does not guarantee that the result is deterministic.
-    # - In this case, inequality is not associative: the remainder may still be deterministic.
-    # - The important question is, can this case realistically occur, or is it filtered out by the previous method?
-    # - x[0] = 0, x[0] = 1, x[0] = 0 is such a case.
+def dissect_overlapping_transition_chain(transitions, _vars, truth_matrices):
+    """Dissect a list of transitions with a non-interrupted chain of overlap"""
     if len(transitions) == 1:
-        return transitions
+        return transitions[0]
+
+    # Example input:
+    # -------    --------
+    #      -------
+
+    # Not allowed:
+    # -------
+    #             -------
+
+    # Find the variables that are used in the transitions and group based on the chosen variables.
+    variables_to_transitions = {}
+    for _t in transitions:
+        _, _used_variables = to_smt_format_string(_t.guard)
+        variables_to_transitions.setdefault(frozenset(_used_variables.keys()), []).append(_t)
+
+    # Check if the groups can be split up more.
+    groupings = [find_deterministic_groups(_v, _vars, truth_matrices) for _v in variables_to_transitions.values()]
+
+    print("DOTC", (Decision.N_DET, groupings))
+
+    # The split needs to be resolved non-deterministically.
+    return Decision.N_DET, groupings
+
+
+def group_overlapping_transitions(transitions, _vars, truth_matrices):
+    """Divide the transitions into groups, based on the equality measure"""
+    if len(transitions) == 1:
+        return transitions[0]
 
     # Transitions are in the same group if they have an equality relation with one another.
     groupings = []
@@ -167,7 +191,7 @@ def group_overlapping_transitions(transitions, _vars, truth_matrices, invert=Fal
     for _t in transitions:
         if _t not in processed_transitions:
             # Find all transitions that have an equality relation with this _t.
-            queue.update([_t2 for _t2 in transitions if truth_matrices["and"][_t][_t2] != invert])
+            queue.update([_t2 for _t2 in transitions if truth_matrices["and"][_t][_t2]])
 
             current_group_transitions = []
 
@@ -179,24 +203,23 @@ def group_overlapping_transitions(transitions, _vars, truth_matrices, invert=Fal
                     current_group_transitions += [_t2]
 
                     # Find all transitions that are related to _t.
-                    queue.update([_t3 for _t3 in transitions if truth_matrices["and"][_t2][_t3] != invert])
+                    queue.update([_t3 for _t3 in transitions if truth_matrices["and"][_t2][_t3]])
 
                     # We do not want to visit the queue head again.
                     processed_transitions.add(_t2)
 
-            # TODO change recursive call to find_deterministic_groups of negation is true.
+            # Can the found list of groupings be dissected?
+            sub_groupings = dissect_overlapping_transition_chain(current_group_transitions, _vars, truth_matrices)
+
             # Add the group to the list of groupings.
-            groupings += [group_overlapping_transitions(current_group_transitions, _vars, truth_matrices, not invert)]
-            # if invert:
-            #     groupings += [find_deterministic_groups(current_group_transitions, _vars, truth_matrices)]
-            # else:
+            groupings += [sub_groupings]
 
     # TODO: can we split the sub-groupings further?
     # Idea: group by left-hand variable name.
     # Idea: certain transitions in the groupings may be deterministic to one another.
-    print(Decision.DET if not invert else Decision.N_DET, groupings)
+    print("GOT", (Decision.DET, groupings))
 
-    return Decision.DET if not invert else Decision.N_DET, groupings
+    return Decision.DET, groupings
 
 
 def find_deterministic_groups(transitions, _vars, truth_matrices):
@@ -216,10 +239,7 @@ def find_deterministic_groups(transitions, _vars, truth_matrices):
     # If we have several invariably active transitions, but not all transitions are, divide and conquer.
     if len(invariably_overlapping_transitions) == 0:
         # Dissect the group of transitions and find a way to split if possible.
-        groupings = group_overlapping_transitions(transitions, _vars, truth_matrices)
-
-        # TODO add smart logic to divide the transitions into smaller groups.
-        return groupings
+        return group_overlapping_transitions(transitions, _vars, truth_matrices)
     else:
         # Find the transitions that are not invariably active.
         remaining_transitions = [_t for _t in transitions if _t not in invariably_overlapping_transitions]
@@ -232,11 +252,6 @@ def find_deterministic_groups(transitions, _vars, truth_matrices):
 
         # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
         return Decision.N_DET, invariably_overlapping_transitions + remaining_groupings
-
-        # TODO what do transitions in the invariably_overlapping_transitions list have as a property?
-        # - There exists at least one value for which all transitions in the list are simultaneously active.
-        # TODO: This case does not necessarily have to be parallel...
-        # - x <= 1, x <= 2, x <= 3 are all invariably overlapping. Partial determinism is possible.
 
 
 def solve_determinism(model):

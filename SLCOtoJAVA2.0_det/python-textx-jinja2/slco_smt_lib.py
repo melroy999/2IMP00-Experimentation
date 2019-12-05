@@ -107,18 +107,7 @@ def to_z3_format(ast, _vars):
 def do_z3_truth_check(ast, _vars, _for_all=True):
     _parsed, _used_vars = to_smt_format_string(ast)
     _var_declarations = generate_z3_variable_declarations(_used_vars, _vars)
-
-    if _for_all:
-        _parsed = "(not %s)" % _parsed
-    _assertion = to_z3_assertion(_parsed, _var_declarations)
-
-    s.push()
-    s.add(z3.parse_smt2_string(_assertion))
-    if _for_all:
-        result = s.check().r != z3.Z3_L_TRUE
-    else:
-        result = s.check().r != z3.Z3_L_FALSE
-    s.pop()
+    result = _z3_check_truth(_for_all, _parsed, _var_declarations)
 
     return result
 
@@ -128,17 +117,20 @@ def do_z3_opr_check(binary_operator, ast1, ast2, _vars, _for_all=False):
     _parsed_2, _used_vars_2 = to_smt_format_string(ast2)
     _var_declarations = generate_z3_variable_declarations({**_used_vars_1, **_used_vars_2}, _vars)
     _parsed = "(%s %s %s)" % (binary_operator, _parsed_1, _parsed_2)
+    result = _z3_check_truth(_for_all, _parsed, _var_declarations)
 
+    return result
+
+
+def _z3_check_truth(_for_all, _parsed, _var_declarations):
     if _for_all:
         _parsed = "(not %s)" % _parsed
     _assertion = to_z3_assertion(_parsed, _var_declarations)
-
     s.push()
     s.add(z3.parse_smt2_string(_assertion))
     if _for_all:
         result = s.check().r != z3.Z3_L_TRUE
     else:
         result = s.check().r != z3.Z3_L_FALSE
-    # print(_parsed, result)
     s.pop()
     return result
