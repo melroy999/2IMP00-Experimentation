@@ -12,42 +12,8 @@ def to_z3_format_rec(ast, _vars):
 
     operator, ops = ast[0], ast[1:]
 
-    # (in)equality operators.
-    if operator == "=":
-        return "(= %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator in ["!=", "<>"]:
-        return "(not (= %s %s))" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == ">":
-        return "(> %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "<":
-        return "(< %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == ">=":
-        return "(>= %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "<=":
-        return "(<= %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-
-    # Composite operators.
-    elif operator == "!":
-        return "(not %s)" % to_z3_format_rec(ops[0], _vars)
-    elif operator in ["&&", "and"]:
-        return "(and %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator in ["||", "or"]:
-        return "(or %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "xor":
-        return "(xor %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-
-    # Math operators.
-    elif operator == "+":
-        return "(+ %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "-":
-        return "(- %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "*":
-        return "(* %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "/":
-        return "(/ %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "%":
-        return "(mod %s %s)" % (to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
-    elif operator == "**":
+    # Power operator.
+    if operator == "**":
         if type(ops[1]) == int:
             value = (("%s " % to_z3_format_rec(ops[0], _vars)) * ops[1]).strip()
             return "(* %s)" % value
@@ -67,6 +33,16 @@ def to_z3_format_rec(ast, _vars):
         _var_name += array_name_dictionary[ops[1]]
         _vars[_var_name] = ops[0]
         return _var_name
+
+    # Binary operations.
+    elif len(ops) == 2:
+        return "(%s %s %s)" % (operator, to_z3_format_rec(ops[0], _vars), to_z3_format_rec(ops[1], _vars))
+
+    # Unary operators.
+    elif len(ops) == 1:
+        return "(%s %s)" % (operator, to_z3_format_rec(ops[0], _vars))
+
+    # Fallback for remaining cases.
     else:
         raise Exception("Unknown operator in", ast)
 

@@ -21,12 +21,12 @@ public class Test2 {
 		// Random number generator to handle non-determinism
 		private Random java_randomGenerator;
 		// Thread local variables
-		private <__main__.Type object at 0x0000024E54B0A358> x;
+		private <__main__.Type object at 0x000001D71FD9B470> x;
 
 		// Constructor
 		java_SM1Thread () {
 			java_randomGenerator = new Random();
-			x = new <__main__.Variable object at 0x0000024E54B0A390> <__main__.Variable object at 0x0000024E54B0A390>;
+			x = new <__main__.Variable object at 0x000001D71FD9B4A8> <__main__.Variable object at 0x000001D71FD9B4A8>;
 		}
 
 		// Execute method
@@ -58,12 +58,12 @@ public class Test2 {
 		// Random number generator to handle non-determinism
 		private Random java_randomGenerator;
 		// Thread local variables
-		private <__main__.Type object at 0x0000024E54B279E8> x;
+		private <__main__.Type object at 0x000001D71FDB7B00> x;
 
 		// Constructor
 		java_SM2Thread () {
 			java_randomGenerator = new Random();
-			x = new <__main__.Variable object at 0x0000024E54B27A20> <__main__.Variable object at 0x0000024E54B27A20>;
+			x = new <__main__.Variable object at 0x000001D71FDB7B38> <__main__.Variable object at 0x000001D71FDB7B38>;
 		}
 
 		// Execute method
@@ -95,14 +95,14 @@ public class Test2 {
 		// Random number generator to handle non-determinism
 		private Random java_randomGenerator;
 		// Thread local variables
-		private <__main__.Type object at 0x0000024E54B39D68> x;
-		private <__main__.Type object at 0x0000024E54B39E48> b;
+		private <__main__.Type object at 0x000001D71FDC9E80> x;
+		private <__main__.Type object at 0x000001D71FDC9F60> b;
 
 		// Constructor
 		java_SM3Thread () {
 			java_randomGenerator = new Random();
-			x = <__main__.Variable object at 0x0000024E54B39DA0>;
-			b = <__main__.Variable object at 0x0000024E54B39E80>;
+			x = <__main__.Variable object at 0x000001D71FDC9EB8>;
+			b = <__main__.Variable object at 0x000001D71FDC9F98>;
 		}
 
 		// Execute method
@@ -130,7 +130,7 @@ public class Test2 {
 	// Constructor for main class
 	Test2() {
 		// Instantiate global variables
-		y = <__main__.Variable object at 0x0000024E54B39F60>;
+		y = <__main__.Variable object at 0x000001D71FDD10B8>;
 	}
 
 	// Start all threads

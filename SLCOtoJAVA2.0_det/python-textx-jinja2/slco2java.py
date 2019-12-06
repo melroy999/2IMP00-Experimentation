@@ -1,6 +1,7 @@
 # SLCO 2.0 to multi-threaded Java transformation, limited to SLCO models consisting of a single object
 
 # import libraries
+from collections import defaultdict
 from enum import Enum
 
 import jinja2
@@ -13,16 +14,37 @@ from timeit import default_timer as timer
 this_folder = dirname(__file__)
 
 
+class TransitDict(dict):
+    def __missing__(self, key):
+        return key
+
+
+smt_operator_mappings = TransitDict()
+smt_operator_mappings["<>"] = "!="
+smt_operator_mappings["!"] = "not"
+smt_operator_mappings["&&"] = "and"
+smt_operator_mappings["||"] = "or"
+smt_operator_mappings["%"] = "mod"
+
+
+# smt_operator_mappings = defaultdict(list, {
+#     "<>": "!=",
+#     "!": "not",
+#     "&&": "and",
+#     "||": "or",
+#     "%": "mod"
+# })
+# smt_operator_mappings.__missing__ = lambda key: key
+
+
 def to_simple_ast(ast):
-    """Convert the xtext AST to a simpler and more tidy format"""
+    """Convert the TextX AST to a simpler and more tidy format"""
     class_name = ast.__class__.__name__
-    if class_name == "Assignment":
-        return ":=", to_simple_ast(ast.left), to_simple_ast(ast.right)
-    elif class_name in ["Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
+    if class_name in ["Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
         if ast.right is None:
             return to_simple_ast(ast.left)
         else:
-            return ast.op, to_simple_ast(ast.left), to_simple_ast(ast.right)
+            return smt_operator_mappings[ast.op], to_simple_ast(ast.left), to_simple_ast(ast.right)
     elif class_name == "Primary":
         if ast.value is not None:
             if ast.sign == "-":
@@ -86,8 +108,9 @@ def transform_statement(_s):
     if class_name == "Composite":
         _s.guard = transform_statement(_s.guard)
         _s.assignments = [transform_statement(_a) for _a in _s.assignments]
-    elif class_name in ["Expression", "Assignment"]:
-        return to_simple_ast(_s)
+    elif class_name == "Expression":
+        _s.smt = to_simple_ast(_s)
+        return _s
 
     return _s
 
@@ -129,7 +152,7 @@ def transform_transition(_t):
         "priority": _t.priority,
         "guard": True if transition_guard is None else transition_guard,
         "statements": [transform_statement(_s) for _s in _t.statements],
-        "__repr__": lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard))
+        "__repr__": lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard.smt))
     }
 
     return type(_t.__class__.__name__, (), properties)()
@@ -186,7 +209,7 @@ def dissect_overlapping_transition_chain(transitions, _vars, truth_matrices):
     # Find the variables that are used in the transitions and group based on the chosen variables.
     variables_to_transitions = {}
     for _t in transitions:
-        _, _used_variables = to_smt_format_string(_t.guard)
+        _, _used_variables = to_smt_format_string(_t.guard.smt)
         variables_to_transitions.setdefault(frozenset(_used_variables.keys()), []).append(_t)
 
     # Check if the groups can be split up more.
@@ -226,11 +249,12 @@ def group_overlapping_transitions(transitions, _vars, truth_matrices):
                     # We do not want to visit the queue head again.
                     processed_transitions.add(_t2)
 
-            # Can the found list of groupings be dissected?
-            sub_groupings = dissect_overlapping_transition_chain(current_group_transitions, _vars, truth_matrices)
+            if len(current_group_transitions) > 0:
+                # Can the found list of groupings be dissected further?
+                sub_groupings = dissect_overlapping_transition_chain(current_group_transitions, _vars, truth_matrices)
 
-            # Add the group to the list of groupings.
-            groupings += [sub_groupings]
+                # Add the group to the list of groupings.
+                groupings += [sub_groupings]
 
     # The result is always deterministic.
     return (Decision.DET, groupings) if len(groupings) > 1 else groupings[0]
@@ -309,9 +333,17 @@ def add_determinism_annotations(model):
                 _vars = {**_c.variables, **_sm.variables}
 
                 if len(transitions) > 0:
+                    # Are there transitions that are never satisfiable?
+                    inactive_transitions = [
+                        _t for _t in transitions if not do_z3_truth_check(_t.guard.smt, _vars, False)
+                    ]
+
                     # First check if any of the transitions are vacuously true.
-                    vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard, _vars)]
-                    remaining_transitions = [_t for _t in transitions if _t not in vacuously_active_transitions]
+                    vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard.smt, _vars)]
+
+                    # Find the transitions that remain.
+                    solved_transitions = vacuously_active_transitions + inactive_transitions
+                    remaining_transitions = [_t for _t in transitions if _t not in solved_transitions]
 
                     # Create the truth matrices for the AND, XOR and implication operators.
                     truth_matrices = calculate_truth_matrices(_vars, transitions)
@@ -325,9 +357,19 @@ def add_determinism_annotations(model):
                     _sm.groupings = groupings = compress_decision_group_tree(groupings)
 
                     print("#"*120)
-                    if len([_t for _t in vacuously_active_transitions if _t.guard is not True]) > 0:
-                        print("WARNING: The following transition guards hold vacuously true:")
-                        for _t in [_t for _t in vacuously_active_transitions if _t.guard is not True]:
+                    print("State Machine:", _sm.name)
+                    print("State:", _s)
+                    print()
+
+                    if len([_t for _t in vacuously_active_transitions if _t.guard.smt is not True]) > 0:
+                        print("WARNING: The following transition guards hold vacuously TRUE:")
+                        for _t in [_t for _t in vacuously_active_transitions if _t.guard.smt is not True]:
+                            print("\t- %s" % _t)
+                        print()
+
+                    if len([_t for _t in inactive_transitions]) > 0:
+                        print("WARNING: The following transition guards are always FALSE:")
+                        for _t in [_t for _t in inactive_transitions]:
                             print("\t- %s" % _t)
                         print()
 
@@ -351,7 +393,7 @@ def calculate_truth_matrices(_vars, transitions):
             # Implication is non-symmetric, so we need to test both directions.
             truth_matrices[_o] = {
                 _t: {
-                    _t2: do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m) for _t2 in transitions
+                    _t2: do_z3_opr_check(_o, _t.guard.smt, _t2.guard.smt, _vars, _m) for _t2 in transitions
                 } for _t in transitions
             }
         else:
@@ -360,7 +402,7 @@ def calculate_truth_matrices(_vars, transitions):
             for _t in transitions:
                 truth_matrices[_o][_t] = {}
                 for _t2 in transitions:
-                    truth_evaluation = do_z3_opr_check(_o, _t.guard, _t2.guard, _vars, _m)
+                    truth_evaluation = do_z3_opr_check(_o, _t.guard.smt, _t2.guard.smt, _vars, _m)
                     truth_matrices[_o][_t][_t2] = truth_evaluation
                     if _t == _t2:
                         break
@@ -438,7 +480,7 @@ def main(_args):
     # preprocess
     model = preprocess(model)
     # translate
-    slco_to_java(model_folder, model, add_counter)
+    # slco_to_java(model_folder, model, add_counter)
 
     print(model)
 
