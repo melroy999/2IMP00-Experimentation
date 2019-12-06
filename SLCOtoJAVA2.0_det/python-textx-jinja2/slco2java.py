@@ -6,6 +6,7 @@ from enum import Enum
 
 import jinja2
 
+from jinja2_filters import *
 from smt_helper_functions import *
 from slcolib import *
 import os
@@ -163,7 +164,7 @@ def transform_state_machine(_sm):
     """Convert the state machine to a more workable format"""
     _sm.initialstate = _sm.initialstate.name
     _sm.states = [_s.name for _s in _sm.states]
-    _sm.variables = {_v.name: _v for _v in _sm.variables}
+    _sm.name_to_variable = {_v.name: _v for _v in _sm.variables}
     _sm.transitions.sort(key=lambda x: (x.source.name, x.target.name))
 
     adjacency_list = {
@@ -177,7 +178,7 @@ def transform_state_machine(_sm):
 def transform_model(_ast):
     """Transform the model such that it provides all the data required for the code conversion"""
     for _c in _ast.classes:
-        _c.variables = {_v.name: _v for _v in _c.variables}
+        _c.name_to_variable = {_v.name: _v for _v in _c.variables}
 
         for _sm in _c.statemachines:
             transform_state_machine(_sm)
@@ -329,8 +330,10 @@ def add_determinism_annotations(model):
     """Observe the transitions in the model and determine which can be done deterministically"""
     for _c in model.classes:
         for _sm in _c.statemachines:
+            _sm.groupings = {_s: None for _s in _sm.transitions.keys()}
+
             for _s, transitions in _sm.transitions.items():
-                _vars = {**_c.variables, **_sm.variables}
+                _vars = {**_c.name_to_variable, **_sm.name_to_variable}
 
                 if len(transitions) > 0:
                     # Are there transitions that are never satisfiable?
@@ -354,7 +357,7 @@ def add_determinism_annotations(model):
 
                     choices = vacuously_active_transitions + sub_groupings
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
-                    _sm.groupings = groupings = compress_decision_group_tree(groupings)
+                    _sm.groupings[_s] = compress_decision_group_tree(groupings)
 
                     print("#"*120)
                     print("State Machine:", _sm.name)
@@ -379,7 +382,7 @@ def add_determinism_annotations(model):
                     print()
 
                     print("Decisions:")
-                    print_decision_groups(groupings)
+                    print_decision_groups(_sm.groupings[_s])
                     print("#"*120)
                     print()
 
@@ -435,6 +438,13 @@ def slco_to_java(model_folder, model, add_counter):
         extensions=['jinja2.ext.loopcontrols', 'jinja2.ext.do', ]
     )
 
+    # Register the filters
+    jinja_env.filters['get_java_type'] = get_java_type
+    jinja_env.filters['get_default_variable_value'] = get_default_variable_value
+    jinja_env.filters['list_states'] = list_states
+    jinja_env.filters['get_grouping'] = get_grouping
+    jinja_env.filters['get_classes'] = get_classes
+
     # load the Java template
     template = jinja_env.get_template('java_determinism.jinja2template')
 
@@ -480,12 +490,7 @@ def main(_args):
     # preprocess
     model = preprocess(model)
     # translate
-    # slco_to_java(model_folder, model, add_counter)
-
-    print(model)
-
-
-# translate
+    slco_to_java(model_folder, model, add_counter)
 
 
 if __name__ == '__main__':

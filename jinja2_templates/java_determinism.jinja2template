@@ -10,8 +10,8 @@ public class {{model.name}} {
     java_{{sm.name}}Thread java_T_{{sm.name}};
     {% endfor %}
     {% endfor %}
-
     {% if add_counter %}
+
     // Upperbound for transition counter
     public static final long java_COUNTER_BOUND = 300000000L;
     {% endif %}
@@ -19,52 +19,82 @@ public class {{model.name}} {
     // Global variables
     {% for c in model.classes %}
     {% for v in c.variables %}
-    public volatile {{v.type}} {{v.name}};
+    public volatile {{v.type | get_java_type(False)}} {{v.name}};
     {% endfor %}
     {% endfor %}
 
 	{% for o in model.objects %}
 	{% set c = o.type %}
 	{% for sm in c.statemachines %}
-	class java_{{sm.name}}Thread extends Thread {
-		private Thread java_t;
-		private String java_threadName = "{{sm.name}}Thread";
-		// Current state
-		private {{model.name}}.java_State java_currentState;
-		// Random number generator to handle non-determinism
-		private Random java_randomGenerator;
-		{% if add_counter %}
-		// Counter of main while-loop iterations
-		long java_transcounter;
-		{% endif %}
-		// Thread local variables
-		{% for v in sm.variables %}
-		private {{v.type}} {{v.name}};
-		{% endfor %}
+	class Java_{{sm.name}}Thread extends Thread {
+        private Thread java_t;
+        private String java_threadName = "{{sm.name}}Thread";
+
+        // Current state
+        private Java_{{sm.name}}Thread.States java_currentState;
+
+        // Random number generator to handle non-determinism
+        private Random java_randomGenerator;
+        {% if add_counter %}
+
+        // Counter of main while-loop iterations
+        long java_transcounter;
+        {% endif %}
+
+        // Thread local variables
+        {% for v in sm.variables %}
+        private {{v.type | get_java_type(False)}} {{v.name}};
+        {% endfor %}
+
+        // Enum type for state machine states
+        enum States {
+            {{sm.states | list_states}}
+        }
 
 		// Constructor
-		java_{{sm.name}}Thread () {
+		Java_{{sm.name}}Thread () {
 			java_randomGenerator = new Random();
 			{% if add_counter %}
 			java_transcounter = 0;
 			{% endif %}
+			java_currentState = {{model.name}}.java_State.{{sm.initialstate.name}};
 			{% for v in sm.variables %}
-			{{v.name}} = {% if v.type.size > 1 %}new {{v}} {% endif %}{{v}};
+			{{v.name}} = {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
 			{% endfor %}
 		}
 
-		// Execute method
-		public void exec() {
+		{% macro build_choice_structure(choice_tree) %}
+                {% if choice_tree[0] == N_DET %}
+                    a
+                {% else %}
+                    b
+                {% endif %}
+        {% endmacro %}
+
+		{# Separate execution methods for each state. #}
+        {% for s in sm.states %}
+        private void exec_{{s.name}}() {
 			// variable to store non-deterministic choices
 			int java_choice;
+
+			{{ sm | get_grouping(s, model, c) }}
+        }
+        {% endfor %}
+
+		// Execute method
+		public void exec() {
 			{% if add_counter %}
 			while(java_transcounter < java_COUNTER_BOUND) {
 			{% else %}
 			while(true) {
 			{% endif %}
-			    {% if add_counter %}
-				//System.out.println(java_transcounter);
-				{% endif %}
+			    switch(java_currentState) {
+                    {% for s in sm.states %}
+                    case {{s.name}}:
+                        exec_{{s.name}}();
+                        break;
+                    {% endfor %}
+			    }
 			}
 		}
 
@@ -81,13 +111,13 @@ public class {{model.name}} {
 			}
 		}
 	}
-	{% endfor %}
 
+	{% endfor %}
 	// Constructor for main class
 	{{model.name}}() {
 		// Instantiate global variables
 		{% for v in c.variables %}
-		{{v.name}} = {% if v.type.size > 1 %}new {{v.type}} {% endif %}{{v}};
+		{{v.name}} = {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
 		{% endfor %}
 	}
 
@@ -114,9 +144,9 @@ public class {{model.name}} {
 
 	// Run application
 	public static void main(String args[]) {
-    {{model.name}} java_ap = new {{model.name}}();
-    java_ap.startThreads();
-    java_ap.joinThreads();
+        {{model.name}} java_ap = new {{model.name}}();
+        java_ap.startThreads();
+        java_ap.joinThreads();
 	}
 	{% endfor %}
 }
