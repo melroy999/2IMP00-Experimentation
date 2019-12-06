@@ -558,3 +558,12 @@ for transitions in transition_tests[:0]:
 # sol = solve(["Eq(x + y, 7)"], (x, y))
 # print(a, b)
 
+
+
+from sympy import *
+print(simplify("((x > 0) & (x < 10)) | ((x > 5) & (x < 15))"))
+print(simplify_logic("((x > 0) & (x < 10)) | ((x > 5) & (x < 15))"))
+
+x = symbols('x')
+print(simplify_logic(((x > 0) & (x < 10)) | ((x > 5) & (x < 15))))
+

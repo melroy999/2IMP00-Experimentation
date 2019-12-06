@@ -1,0 +1,122 @@
+import java.util.Random;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.Arrays;
+
+// main class
+public class {{model.name}} {
+    // The threads
+    {% for c in model.classes %}
+    {% for sm in c.statemachines %}
+    java_{{sm.name}}Thread java_T_{{sm.name}};
+    {% endfor %}
+    {% endfor %}
+
+    {% if add_counter %}
+    // Upperbound for transition counter
+    public static final long java_COUNTER_BOUND = 300000000L;
+    {% endif %}
+
+    // Global variables
+    {% for c in model.classes %}
+    {% for v in c.variables %}
+    public volatile {{v.type}} {{v.name}};
+    {% endfor %}
+    {% endfor %}
+
+	{% for o in model.objects %}
+	{% set c = o.type %}
+	{% for sm in c.statemachines %}
+	class java_{{sm.name}}Thread extends Thread {
+		private Thread java_t;
+		private String java_threadName = "{{sm.name}}Thread";
+		// Current state
+		private {{model.name}}.java_State java_currentState;
+		// Random number generator to handle non-determinism
+		private Random java_randomGenerator;
+		{% if add_counter %}
+		// Counter of main while-loop iterations
+		long java_transcounter;
+		{% endif %}
+		// Thread local variables
+		{% for v in sm.variables %}
+		private {{v.type}} {{v.name}};
+		{% endfor %}
+
+		// Constructor
+		java_{{sm.name}}Thread () {
+			java_randomGenerator = new Random();
+			{% if add_counter %}
+			java_transcounter = 0;
+			{% endif %}
+			{% for v in sm.variables %}
+			{{v.name}} = {% if v.type.size > 1 %}new {{v}} {% endif %}{{v}};
+			{% endfor %}
+		}
+
+		// Execute method
+		public void exec() {
+			// variable to store non-deterministic choices
+			int java_choice;
+			{% if add_counter %}
+			while(java_transcounter < java_COUNTER_BOUND) {
+			{% else %}
+			while(true) {
+			{% endif %}
+			    {% if add_counter %}
+				//System.out.println(java_transcounter);
+				{% endif %}
+			}
+		}
+
+		// Run method
+		public void run() {
+			exec();
+		}
+
+		// Start method
+		public void start() {
+			if (java_t == null) {
+				java_t = new Thread(this);
+				java_t.start();
+			}
+		}
+	}
+	{% endfor %}
+
+	// Constructor for main class
+	{{model.name}}() {
+		// Instantiate global variables
+		{% for v in c.variables %}
+		{{v.name}} = {% if v.type.size > 1 %}new {{v.type}} {% endif %}{{v}};
+		{% endfor %}
+	}
+
+	// Start all threads
+	public void startThreads() {
+		{% for sm in c.statemachines %}
+		java_T_{{sm.name}}.start();
+		{% endfor %}
+	}
+
+	// Join all threads
+	public void joinThreads() {
+		while (true) {
+			try {
+				{% for sm in c.statemachines %}
+				java_T_{{sm.name}}.join();
+				{% endfor %}
+				break;
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	// Run application
+	public static void main(String args[]) {
+    {{model.name}} java_ap = new {{model.name}}();
+    java_ap.startThreads();
+    java_ap.joinThreads();
+	}
+	{% endfor %}
+}

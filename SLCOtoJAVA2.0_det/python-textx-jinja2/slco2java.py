@@ -3,7 +3,9 @@
 # import libraries
 from enum import Enum
 
-from slco_smt_lib import *
+import jinja2
+
+from smt_helper_functions import *
 from slcolib import *
 import os
 from timeit import default_timer as timer
@@ -82,7 +84,7 @@ def transform_statement(_s):
     class_name = _s.__class__.__name__
 
     if class_name == "Composite":
-        _s.guard = to_simple_ast(_s.guard)
+        _s.guard = transform_statement(_s.guard)
         _s.assignments = [transform_statement(_a) for _a in _s.assignments]
     elif class_name in ["Expression", "Assignment"]:
         return to_simple_ast(_s)
@@ -100,12 +102,12 @@ def expression_to_string(ast):
             if operator == "var[]":
                 return "%s[%s]" % (expression_to_string(ops[0]), expression_to_string(ops[1]))
             else:
-                return "%s %s %s" % (expression_to_string(ops[0]), operator, expression_to_string(ops[1]))
+                return "(%s %s %s)" % (expression_to_string(ops[0]), operator, expression_to_string(ops[1]))
         else:
             if operator == "var":
                 return "%s" % (expression_to_string(ops[0]))
             else:
-                return "%s (%s)" % (operator, expression_to_string(ops[1]))
+                return "(%s %s)" % (operator, expression_to_string(ops[0]))
 
 
 def transform_transition(_t):
@@ -116,9 +118,9 @@ def transform_transition(_t):
 
     transition_guard = None
     if class_name == "Composite":
-        transition_guard = to_simple_ast(first_statement.guard)
+        transition_guard = transform_statement(first_statement.guard)
     elif class_name == "Expression":
-        transition_guard = to_simple_ast(first_statement)
+        transition_guard = transform_statement(first_statement)
 
     # Create a mutable copy.
     properties = {
@@ -174,12 +176,12 @@ def dissect_overlapping_transition_chain(transitions, _vars, truth_matrices):
         return transitions[0]
 
     # Example input:
-    # -------    --------
-    #      -------
+    # x -------    --------
+    # y     --------
 
     # Not allowed:
-    # -------
-    #             -------
+    # x -------
+    # y            -------
 
     # Find the variables that are used in the transitions and group based on the chosen variables.
     variables_to_transitions = {}
@@ -299,7 +301,7 @@ def compress_decision_group_tree(tree):
         return choice_type, compressed_members
 
 
-def solve_determinism(model):
+def add_determinism_annotations(model):
     """Observe the transitions in the model and determine which can be done deterministically"""
     for _c in model.classes:
         for _sm in _c.statemachines:
@@ -311,11 +313,6 @@ def solve_determinism(model):
                     vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard, _vars)]
                     remaining_transitions = [_t for _t in transitions if _t not in vacuously_active_transitions]
 
-                    if len([_t for _t in vacuously_active_transitions if _t.guard is not True]) > 0:
-                        print("WARNING: The following guards hold vacuously true:")
-                        for _t in [_t for _t in vacuously_active_transitions if _t.guard is not True]:
-                            print("\t- %s" % _t)
-
                     # Create the truth matrices for the AND, XOR and implication operators.
                     truth_matrices = calculate_truth_matrices(_vars, transitions)
 
@@ -325,7 +322,14 @@ def solve_determinism(model):
 
                     choices = vacuously_active_transitions + sub_groupings
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
-                    groupings = compress_decision_group_tree(groupings)
+                    _sm.groupings = groupings = compress_decision_group_tree(groupings)
+
+                    print("#"*120)
+                    if len([_t for _t in vacuously_active_transitions if _t.guard is not True]) > 0:
+                        print("WARNING: The following transition guards hold vacuously true:")
+                        for _t in [_t for _t in vacuously_active_transitions if _t.guard is not True]:
+                            print("\t- %s" % _t)
+                        print()
 
                     print("Transitions:")
                     for _t in transitions:
@@ -334,6 +338,7 @@ def solve_determinism(model):
 
                     print("Decisions:")
                     print_decision_groups(groupings)
+                    print("#"*120)
                     print()
 
     return model
@@ -359,8 +364,7 @@ def calculate_truth_matrices(_vars, transitions):
                     truth_matrices[_o][_t][_t2] = truth_evaluation
                     if _t == _t2:
                         break
-                    else:
-                        truth_matrices[_o][_t2][_t] = truth_evaluation
+                    truth_matrices[_o][_t2][_t] = truth_evaluation
     return truth_matrices
 
 
@@ -371,9 +375,35 @@ def preprocess(model):
     # Extend and transform the model to one fitting our purpose.
     transform_model(model)
 
-    solve_determinism(model)
+    # Find which transitions can be executed with determinism and add the required information to the model.
+    add_determinism_annotations(model)
 
     return model
+
+
+def slco_to_java(model_folder, model, add_counter):
+    """The translation function"""
+    out_file = open(os.path.join(model_folder, model.name + ".java"), 'w')
+
+    # Initialize the template engine.
+    jinja_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(join(this_folder, '../../jinja2_templates')),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        extensions=['jinja2.ext.loopcontrols', 'jinja2.ext.do', ]
+    )
+
+    # load the Java template
+    template = jinja_env.get_template('java_determinism.jinja2template')
+
+    # write the program
+    out_file.write(
+        template.render(
+            model=model,
+            add_counter=add_counter
+        )
+    )
+    out_file.close()
 
 
 def main(_args):
@@ -389,11 +419,7 @@ def main(_args):
             print("Usage: pypy/python3 slco2java")
             print("")
             print("Transform an SLCO 2.0 model to a Java program.")
-            print(
-                "-v                                   produce a list of transition functions with Vercors annotations for formal verification")
-            print("-l <file>                            provide locking file for smart locking")
-            print(
-                "-c                                   produce a transition counter in the code, to make program executions finite")
+            print("-c                 produce a transition counter in the code, to make program executions finite")
             sys.exit(0)
         else:
             _i = 0
@@ -411,6 +437,8 @@ def main(_args):
     model = read_SLCO_model(model_name)
     # preprocess
     model = preprocess(model)
+    # translate
+    slco_to_java(model_folder, model, add_counter)
 
     print(model)
 
