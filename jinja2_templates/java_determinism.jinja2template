@@ -7,7 +7,7 @@ public class {{model.name}} {
     // The threads
     {% for c in model.classes %}
     {% for sm in c.statemachines %}
-    java_{{sm.name}}Thread java_T_{{sm.name}};
+    Java_{{sm.name}}Thread java_T_{{sm.name}};
     {% endfor %}
     {% endfor %}
     {% if add_counter %}
@@ -26,7 +26,14 @@ public class {{model.name}} {
 	{% for o in model.objects %}
 	{% set c = o.type %}
 	{% for sm in c.statemachines %}
-	class Java_{{sm.name}}Thread extends Thread {
+	interface Java_{{sm.name}}Thread_States {
+	    // Enum type for state machine states
+        enum States {
+            {{sm.states | comma_separated_list}}
+        }
+	}
+
+	class Java_{{sm.name}}Thread extends Thread implements Java_{{sm.name}}Thread_States {
         private Thread java_t;
         private String java_threadName = "{{sm.name}}Thread";
 
@@ -46,18 +53,13 @@ public class {{model.name}} {
         private {{v.type | get_java_type(False)}} {{v.name}};
         {% endfor %}
 
-        // Enum type for state machine states
-        enum States {
-            {{sm.states | comma_separated_list}}
-        }
-
 		// Constructor
 		Java_{{sm.name}}Thread () {
 			java_randomGenerator = new Random();
 			{% if add_counter %}
 			java_transcounter = 0;
 			{% endif %}
-			java_currentState = {{model.name}}.java_State.{{sm.initialstate}};
+			java_currentState = Java_{{sm.name}}Thread.States.{{sm.initialstate}};
 			{% for v in sm.variables %}
 			{{v.name}} = {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
 			{% endfor %}
@@ -69,15 +71,16 @@ public class {{model.name}} {
 			// variable to store non-deterministic choices
 			{% if sm.groupings[s] %}
 			int java_choice;
-			{{sm.groupings[s] | get_choice_structure(add_counter) | indent(12, False) }}
-			{% else %}
-			return false;
+			{{sm.groupings[s] | get_choice_structure(add_counter, sm) | indent(12, False) }}
 			{% endif %}
+			return false;
         }
 
         {% endfor %}
 		// Execute method
-		public void exec() {
+		private void exec() {
+		    boolean result;
+
 			{% if add_counter %}
 			while(java_transcounter < java_COUNTER_BOUND) {
 			{% else %}
@@ -86,7 +89,7 @@ public class {{model.name}} {
 			    switch(java_currentState) {
                     {% for s in sm.states %}
                     case {{s}}:
-                        exec_{{s}}();
+                        result = exec_{{s}}();
                         break;
                     {% endfor %}
 			    }
@@ -117,14 +120,14 @@ public class {{model.name}} {
 	}
 
 	// Start all threads
-	public void startThreads() {
+	private void startThreads() {
 		{% for sm in c.statemachines %}
 		java_T_{{sm.name}}.start();
 		{% endfor %}
 	}
 
 	// Join all threads
-	public void joinThreads() {
+	private void joinThreads() {
 		while (true) {
 			try {
 				{% for sm in c.statemachines %}
@@ -138,7 +141,7 @@ public class {{model.name}} {
 	}
 
 	// Run application
-	public static void main(String args[]) {
+	public static void main(String[] args) {
         {{model.name}} java_ap = new {{model.name}}();
         java_ap.startThreads();
         java_ap.joinThreads();

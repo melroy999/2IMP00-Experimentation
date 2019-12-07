@@ -58,13 +58,13 @@ def to_simple_ast(ast):
             if ast.sign == "-":
                 return "-", 0, to_simple_ast(ast.ref)
             if ast.sign == "not":
-                return "!", to_simple_ast(ast.ref)
+                return "not", to_simple_ast(ast.ref)
             return to_simple_ast(ast.ref)
         else:
             if ast.sign == "-":
                 return "-", 0, to_simple_ast(ast.body)
             if ast.sign == "not":
-                return "!", to_simple_ast(ast.body)
+                return "not", to_simple_ast(ast.body)
             else:
                 return to_simple_ast(ast.body)
     elif class_name == "ExpressionRef":
@@ -286,7 +286,7 @@ def print_decision_groups(tree, d=1):
             print_decision_groups(_t, d + 1)
 
 
-def format_decision_group_tree(tree):
+def format_decision_group_tree(tree, vacuously_active_transitions):
     """Compress the decision group tree such that the decision type alternates per level"""
     if tree.__class__.__name__ == "Transition":
         return tree
@@ -295,11 +295,14 @@ def format_decision_group_tree(tree):
 
         compressed_members = []
         for _m in members:
-            _m = format_decision_group_tree(_m)
+            _m = format_decision_group_tree(_m, vacuously_active_transitions)
 
             if _m.__class__.__name__ == "Transition":
                 if choice_type == Decision.N_DET:
-                    compressed_members.append((Decision.DET, [_m]))
+                    if _m in vacuously_active_transitions:
+                        compressed_members.append(_m)
+                    else:
+                        compressed_members.append((Decision.DET, [_m]))
                 else:
                     compressed_members.append(_m)
             else:
@@ -342,7 +345,7 @@ def add_determinism_annotations(model):
 
                     choices = vacuously_active_transitions + sub_groupings
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
-                    _sm.groupings[_s] = format_decision_group_tree(groupings)
+                    _sm.groupings[_s] = format_decision_group_tree(groupings, vacuously_active_transitions)
 
                     print("#"*120)
                     print("State Machine:", _sm.name)

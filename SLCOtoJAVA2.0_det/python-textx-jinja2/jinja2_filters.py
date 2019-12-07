@@ -42,7 +42,7 @@ java_operator_mappings["<>"] = "!="
 java_operator_mappings["="] = "=="
 java_operator_mappings["and"] = "&&"
 java_operator_mappings["or"] = "||"
-java_operator_mappings["not"] = "||"
+java_operator_mappings["not"] = "!"
 
 
 def get_instruction(m):
@@ -65,10 +65,10 @@ def get_instruction(m):
         if m.value is not None:
             exp_str = str(m.value).lower()
         elif m.ref is not None:
-            exp_str = m.ref.ref + "[%s]" % get_instruction(m.ref.index) if m.ref.index is not None else ""
+            exp_str = m.ref.ref + ("[%s]" % get_instruction(m.ref.index) if m.ref.index is not None else "")
         else:
             exp_str = "(%s)" % get_instruction(m.body)
-        return ("not (%s)" if m.sign == "not" else m.sign + "%s") % exp_str
+        return ("!(%s)" if m.sign == "not" else m.sign + "%s") % exp_str
     elif model_class == "VariableRef":
         return m.var.name + "[%s]" % get_instruction(m.index) if m.index is not None else ""
 
@@ -88,11 +88,12 @@ def to_java_statement(model, add_counter):
         )
 
 
-def get_choice_structure(model, add_counter):
+def get_choice_structure(model, add_counter, sm):
     if model.__class__.__name__ == "Transition":
         return transition_template.render(
             model=model,
-            add_counter=add_counter
+            add_counter=add_counter,
+            sm=sm
         )
     else:
         choice_type, choices = model
@@ -100,12 +101,14 @@ def get_choice_structure(model, add_counter):
         if choice_type.value == 1:
             return non_deterministic_choice_template.render(
                 model=choices,
-                add_counter=add_counter
+                add_counter=add_counter,
+                sm=sm
             )
         else:
             return deterministic_choice_template.render(
                 model=choices,
-                add_counter=add_counter
+                add_counter=add_counter,
+                sm=sm
             )
 
 

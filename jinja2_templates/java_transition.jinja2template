@@ -1,4 +1,5 @@
 {% for s in model.statements %}
 {{s | to_java_statement(add_counter)}};
 {% endfor %}
+java_currentState = Java_{{sm.name}}Thread.States.{{model.target}};
 return true;
