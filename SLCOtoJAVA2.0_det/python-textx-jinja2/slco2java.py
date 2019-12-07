@@ -129,7 +129,11 @@ def transform_transition(_t):
     _t.target = _t.target.name
     _t.priority = _t.priority
     _t.guard = True if transition_guard is None else transition_guard
-    _t.statements = [transform_statement(_s) for _s in _t.statements]
+    if transition_guard is None:
+        _t.statements = [transform_statement(_s) for _s in _t.statements]
+    else:
+        _t.statements = [transform_statement(_s) for _s in _t.statements[1:]]
+
     type(_t).__repr__ = lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard.smt))
     return _t
 
@@ -282,7 +286,7 @@ def print_decision_groups(tree, d=1):
             print_decision_groups(_t, d + 1)
 
 
-def compress_decision_group_tree(tree):
+def format_decision_group_tree(tree):
     """Compress the decision group tree such that the decision type alternates per level"""
     if tree.__class__.__name__ == "Transition":
         return tree
@@ -291,10 +295,13 @@ def compress_decision_group_tree(tree):
 
         compressed_members = []
         for _m in members:
-            _m = compress_decision_group_tree(_m)
+            _m = format_decision_group_tree(_m)
 
             if _m.__class__.__name__ == "Transition":
-                compressed_members.append(_m)
+                if choice_type == Decision.N_DET:
+                    compressed_members.append((Decision.DET, [_m]))
+                else:
+                    compressed_members.append(_m)
             else:
                 if _m[0] != choice_type:
                     compressed_members.append(_m)
@@ -335,7 +342,7 @@ def add_determinism_annotations(model):
 
                     choices = vacuously_active_transitions + sub_groupings
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
-                    _sm.groupings[_s] = compress_decision_group_tree(groupings)
+                    _sm.groupings[_s] = format_decision_group_tree(groupings)
 
                     print("#"*120)
                     print("State Machine:", _sm.name)
@@ -417,9 +424,12 @@ def slco_to_java(model_folder, model, add_counter):
     # Register the filters
     jinja_env.filters['get_java_type'] = get_java_type
     jinja_env.filters['get_default_variable_value'] = get_default_variable_value
-    jinja_env.filters['list_states'] = list_states
-    jinja_env.filters['get_grouping'] = get_grouping
+    jinja_env.filters['comma_separated_list'] = comma_separated_list
     jinja_env.filters['get_classes'] = get_classes
+    jinja_env.filters['get_choice_structure'] = get_choice_structure
+    jinja_env.filters['to_java_statement'] = to_java_statement
+    jinja_env.filters['get_instruction'] = get_instruction
+    jinja_env.filters['get_guard_statement'] = get_guard_statement
 
     # load the Java template
     template = jinja_env.get_template('java_determinism.jinja2template')

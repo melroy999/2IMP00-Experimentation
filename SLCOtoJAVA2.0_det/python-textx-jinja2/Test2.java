@@ -33,33 +33,69 @@ public class Test2 {
 		// Constructor
 		Java_SM1Thread () {
 			java_randomGenerator = new Random();
-			java_currentState = Test2.java_State.;
+			java_currentState = Test2.java_State.SMC0;
 			x = new int[] {0, 0};
 		}
 
-
-        private void exec_() {
+        private boolean exec_SMC0() {
 			// variable to store non-deterministic choices
 			int java_choice;
-
-			(Decision.N_DET, [SMC0->SMC1[(x[0] <= 3)], (Decision.DET, [SMC0->SMC1[(x[1] = 2)], SMC0->SMC1[(x[1] = 3)]]), (Decision.DET, [(Decision.N_DET, [SMC0->SMC1[(x[0] = 0)], SMC0->SMC1[(x[0] = 0)]]), SMC0->SMC1[(x[0] = 1)]])])
+			java_choice = java_randomGenerator.nextInt(3);
+            switch(java_choice) {
+                case 0:
+                    if (x[0] <= 3) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                case 1:
+                    if (((x[0] == 0)) || ((x[0] == 0))) {
+                        java_choice = java_randomGenerator.nextInt(2);
+                        switch(java_choice) {
+                            case 0:
+                                if (x[0] == 0) {
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            case 1:
+                                if (x[0] == 0) {
+                                    x[0] = 0;
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                        }
+                    } else if(x[0] == 1) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                case 2:
+                    if (x[1] == 3) {
+                        return true;
+                    } else if(x[1] == 2) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+            }
         }
-        private void exec_() {
-			// variable to store non-deterministic choices
-			int java_choice;
 
-			None
+        private boolean exec_SMC1() {
+			// variable to store non-deterministic choices
+			return false;
         }
 
 		// Execute method
 		public void exec() {
 			while(true) {
 			    switch(java_currentState) {
-                    case :
-                        exec_();
+                    case SMC0:
+                        exec_SMC0();
                         break;
-                    case :
-                        exec_();
+                    case SMC1:
+                        exec_SMC1();
                         break;
 			    }
 			}
@@ -100,33 +136,50 @@ public class Test2 {
 		// Constructor
 		Java_SM2Thread () {
 			java_randomGenerator = new Random();
-			java_currentState = Test2.java_State.;
+			java_currentState = Test2.java_State.SMC0;
 			x = new int[] {0, 0};
 		}
 
-
-        private void exec_() {
+        private boolean exec_SMC0() {
 			// variable to store non-deterministic choices
 			int java_choice;
-
-			(Decision.N_DET, [SMC0->SMC1[(x[0] <= 3)], (Decision.DET, [SMC0->SMC1[((x[0] mod 4) = 0)], SMC0->SMC1[((x[0] mod 4) = 1)], SMC0->SMC1[((x[0] mod 4) = 2)], SMC0->SMC1[((x[0] mod 4) = 3)]])])
+			java_choice = java_randomGenerator.nextInt(2);
+            switch(java_choice) {
+                case 0:
+                    if (x[0] <= 3) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                case 1:
+                    if (x[0] % 4 == 0) {
+                        return true;
+                    } else if(x[0] % 4 == 1) {
+                        return true;
+                    } else if(x[0] % 4 == 2) {
+                        return true;
+                    } else if(x[0] % 4 == 3) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+            }
         }
-        private void exec_() {
-			// variable to store non-deterministic choices
-			int java_choice;
 
-			None
+        private boolean exec_SMC1() {
+			// variable to store non-deterministic choices
+			return false;
         }
 
 		// Execute method
 		public void exec() {
 			while(true) {
 			    switch(java_currentState) {
-                    case :
-                        exec_();
+                    case SMC0:
+                        exec_SMC0();
                         break;
-                    case :
-                        exec_();
+                    case SMC1:
+                        exec_SMC1();
                         break;
 			    }
 			}
@@ -168,34 +221,53 @@ public class Test2 {
 		// Constructor
 		Java_SM3Thread () {
 			java_randomGenerator = new Random();
-			java_currentState = Test2.java_State.;
+			java_currentState = Test2.java_State.SMC0;
 			x = 0;
 			b = true;
 		}
 
-
-        private void exec_() {
+        private boolean exec_SMC0() {
 			// variable to store non-deterministic choices
 			int java_choice;
-
-			(Decision.N_DET, [SMC0->SMC1[(y = 4)], SMC0->SMC1[(b or (! b))], (Decision.DET, [SMC0->SMC1[((x >= 0) and (x < 3))], SMC0->SMC1[(x = 4)]])])
+			java_choice = java_randomGenerator.nextInt(3);
+            switch(java_choice) {
+                case 0:
+                    if ( == 4) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                case 1:
+                    if ( || not ()) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                case 2:
+                    if ( >= 0 &&  < 3) {
+                        return true;
+                    } else if( == 4) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+            }
         }
-        private void exec_() {
-			// variable to store non-deterministic choices
-			int java_choice;
 
-			None
+        private boolean exec_SMC1() {
+			// variable to store non-deterministic choices
+			return false;
         }
 
 		// Execute method
 		public void exec() {
 			while(true) {
 			    switch(java_currentState) {
-                    case :
-                        exec_();
+                    case SMC0:
+                        exec_SMC0();
                         break;
-                    case :
-                        exec_();
+                    case SMC1:
+                        exec_SMC1();
                         break;
 			    }
 			}

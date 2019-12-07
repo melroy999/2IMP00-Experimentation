@@ -48,7 +48,7 @@ public class {{model.name}} {
 
         // Enum type for state machine states
         enum States {
-            {{sm.states | list_states}}
+            {{sm.states | comma_separated_list}}
         }
 
 		// Constructor
@@ -57,30 +57,25 @@ public class {{model.name}} {
 			{% if add_counter %}
 			java_transcounter = 0;
 			{% endif %}
-			java_currentState = {{model.name}}.java_State.{{sm.initialstate.name}};
+			java_currentState = {{model.name}}.java_State.{{sm.initialstate}};
 			{% for v in sm.variables %}
 			{{v.name}} = {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
 			{% endfor %}
 		}
 
-		{% macro build_choice_structure(choice_tree) %}
-                {% if choice_tree[0] == N_DET %}
-                    a
-                {% else %}
-                    b
-                {% endif %}
-        {% endmacro %}
-
 		{# Separate execution methods for each state. #}
         {% for s in sm.states %}
-        private void exec_{{s.name}}() {
+        private boolean exec_{{s}}() {
 			// variable to store non-deterministic choices
+			{% if sm.groupings[s] %}
 			int java_choice;
-
-			{{ sm | get_grouping(s, model, c) }}
+			{{sm.groupings[s] | get_choice_structure(add_counter) | indent(12, False) }}
+			{% else %}
+			return false;
+			{% endif %}
         }
-        {% endfor %}
 
+        {% endfor %}
 		// Execute method
 		public void exec() {
 			{% if add_counter %}
@@ -90,8 +85,8 @@ public class {{model.name}} {
 			{% endif %}
 			    switch(java_currentState) {
                     {% for s in sm.states %}
-                    case {{s.name}}:
-                        exec_{{s.name}}();
+                    case {{s}}:
+                        exec_{{s}}();
                         break;
                     {% endfor %}
 			    }
