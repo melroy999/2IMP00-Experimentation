@@ -7,19 +7,19 @@ public class {{model.name}} {
     // The threads
     {% for c in model.classes %}
     {% for sm in c.statemachines %}
-    Java_{{sm.name}}Thread java_T_{{sm.name}};
+    private Java_{{sm.name}}Thread java_T_{{sm.name}};
     {% endfor %}
     {% endfor %}
     {% if add_counter %}
 
     // Upperbound for transition counter
-    public static final long java_COUNTER_BOUND = 300000000L;
+    private static final long java_COUNTER_BOUND = 300000000L;
     {% endif %}
 
     // Global variables
     {% for c in model.classes %}
     {% for v in c.variables %}
-    public volatile {{v.type | get_java_type(False)}} {{v.name}};
+    private volatile {{v.type | get_java_type(False)}} {{v.name}};
     {% endfor %}
     {% endfor %}
 
@@ -45,7 +45,7 @@ public class {{model.name}} {
         {% if add_counter %}
 
         // Counter of main while-loop iterations
-        long java_transcounter;
+        long java_transition_counter;
         {% endif %}
 
         // Thread local variables
@@ -57,7 +57,7 @@ public class {{model.name}} {
 		Java_{{sm.name}}Thread () {
 			java_randomGenerator = new Random();
 			{% if add_counter %}
-			java_transcounter = 0;
+			java_transition_counter = 0;
 			{% endif %}
 			java_currentState = Java_{{sm.name}}Thread.States.{{sm.initialstate}};
 			{% for v in sm.variables %}
@@ -73,27 +73,41 @@ public class {{model.name}} {
 			int java_choice;
 			{{sm.groupings[s] | get_choice_structure(add_counter, sm) | indent(12, False) }}
 			{% endif %}
+			{% if sm.groupings[s][1] | length > 1 %}
 			return false;
+			{% endif %}
         }
 
         {% endfor %}
 		// Execute method
 		private void exec() {
-		    boolean result;
-
 			{% if add_counter %}
-			while(java_transcounter < java_COUNTER_BOUND) {
+		    boolean result = false;
+		    {% endif %}
+			{% if add_counter %}
+			while(java_transition_counter < java_COUNTER_BOUND) {
 			{% else %}
 			while(true) {
 			{% endif %}
 			    switch(java_currentState) {
                     {% for s in sm.states %}
                     case {{s}}:
+                        {% if add_counter %}
                         result = exec_{{s}}();
+                        {% else %}
+                        exec_{{s}}();
+                        {% endif %}
                         break;
                     {% endfor %}
 			    }
-			}
+			    {% if add_counter %}
+
+                // Increment counter
+                if(result) {
+                    java_transition_counter++;
+                }
+                {% endif %}
+            }
 		}
 
 		// Run method
@@ -117,6 +131,9 @@ public class {{model.name}} {
 		{% for v in c.variables %}
 		{{v.name}} = {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
 		{% endfor %}
+		{% for sm in c.statemachines %}
+        java_T_{{sm.name}} = new {{model.name}}.Java_{{sm.name}}Thread();
+        {% endfor %}
 	}
 
 	// Start all threads

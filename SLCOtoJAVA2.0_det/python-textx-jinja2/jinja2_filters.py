@@ -49,7 +49,7 @@ def get_instruction(m):
     model_class = m.__class__.__name__
 
     if model_class == "Assignment":
-        var_str = m.left.var.name + "[" + get_instruction(m.left.index) + "]" if m.left.index is not None else ""
+        var_str = m.left.var.name + ("[" + get_instruction(m.left.index) + "]" if m.left.index is not None else "")
         exp_str = ("(byte) (%s)" if m.left.var.type.base == "Byte" else "%s") % get_instruction(m.right)
         return "%s = %s" % (var_str, exp_str)
     elif model_class == "Composite":
@@ -70,7 +70,7 @@ def get_instruction(m):
             exp_str = "(%s)" % get_instruction(m.body)
         return ("!(%s)" if m.sign == "not" else m.sign + "%s") % exp_str
     elif model_class == "VariableRef":
-        return m.var.name + "[%s]" % get_instruction(m.index) if m.index is not None else ""
+        return m.var.name + ("[%s]" % get_instruction(m.index) if m.index is not None else "")
 
 
 def to_java_statement(model, add_counter):
@@ -78,7 +78,7 @@ def to_java_statement(model, add_counter):
     model_class = model.__class__.__name__
 
     if model_class == "Assignment":
-        return get_instruction(model)
+        return "%s;" % get_instruction(model)
     elif model_class == "Expression":
         body_str = "return false"
         return "if(!(%s)) %s" % (get_instruction(model), body_str)
@@ -86,6 +86,8 @@ def to_java_statement(model, add_counter):
         return composite_statement_template.render(
             model=model
         )
+    else:
+        return ""
 
 
 def get_choice_structure(model, add_counter, sm):

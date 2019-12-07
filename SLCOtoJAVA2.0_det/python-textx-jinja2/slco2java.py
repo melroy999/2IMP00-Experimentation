@@ -128,13 +128,16 @@ def transform_transition(_t):
     _t.source = _t.source.name
     _t.target = _t.target.name
     _t.priority = _t.priority
+
     _t.guard = True if transition_guard is None else transition_guard
     if transition_guard is None:
         _t.statements = [transform_statement(_s) for _s in _t.statements]
     else:
         _t.statements = [transform_statement(_s) for _s in _t.statements[1:]]
 
-    type(_t).__repr__ = lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard.smt))
+    type(_t).__repr__ = lambda self: "%s->%s[%s]" % (
+        self.source, self.target, self.guard if type(self.guard) == bool else expression_to_string(self.guard.smt)
+    )
     return _t
 
 
@@ -326,18 +329,20 @@ def add_determinism_annotations(model):
                 if len(transitions) > 0:
                     # Are there transitions that are never satisfiable?
                     inactive_transitions = [
-                        _t for _t in transitions if not do_z3_truth_check(_t.guard.smt, _vars, False)
+                        _t for _t in transitions if _t.guard is not True and not do_z3_truth_check(_t.guard.smt, _vars, False)
                     ]
 
                     # First check if any of the transitions are vacuously true.
-                    vacuously_active_transitions = [_t for _t in transitions if do_z3_truth_check(_t.guard.smt, _vars)]
+                    vacuously_active_transitions = [
+                        _t for _t in transitions if _t.guard is True or do_z3_truth_check(_t.guard.smt, _vars)
+                    ]
 
                     # Find the transitions that remain.
                     solved_transitions = vacuously_active_transitions + inactive_transitions
                     remaining_transitions = [_t for _t in transitions if _t not in solved_transitions]
 
                     # Create the truth matrices for the AND, XOR and implication operators.
-                    truth_matrices = calculate_truth_matrices(_vars, transitions)
+                    truth_matrices = calculate_truth_matrices(_vars, remaining_transitions)
 
                     sub_groupings = []
                     if len(remaining_transitions) > 0:
@@ -352,9 +357,9 @@ def add_determinism_annotations(model):
                     print("State:", _s)
                     print()
 
-                    if len([_t for _t in vacuously_active_transitions if _t.guard.smt is not True]) > 0:
+                    if len([_t for _t in vacuously_active_transitions if _t.guard is not True and _t.guard.smt is not True]) > 0:
                         print("WARNING: The following transition guards hold vacuously TRUE:")
-                        for _t in [_t for _t in vacuously_active_transitions if _t.guard.smt is not True]:
+                        for _t in [_t for _t in vacuously_active_transitions if _t.guard is not True and _t.guard.smt is not True]:
                             print("\t- %s" % _t)
                         print()
 

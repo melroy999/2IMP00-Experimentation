@@ -5,10 +5,10 @@ import java.util.Arrays;
 // main class
 public class Test2 {
     // The threads
-    Java_SM3Thread java_T_SM3;
+    private Java_SM3Thread java_T_SM3;
 
     // Global variables
-    public volatile int y;
+    private volatile int y;
 
 	interface Java_SM3Thread_States {
 	    // Enum type for state machine states
@@ -55,9 +55,11 @@ public class Test2 {
                     return false;
                 case 2:
                     if (x >= 0 && x < 3) {
+                        x = x + 1;
                         java_currentState = Java_SM3Thread.States.SMC1;
                         return true;
                     } else if(x == 4) {
+                        x = 0;
                         java_currentState = Java_SM3Thread.States.SMC1;
                         return true;
                     }
@@ -68,23 +70,23 @@ public class Test2 {
 
         private boolean exec_SMC1() {
 			// variable to store non-deterministic choices
-			return false;
+			int java_choice;
+			java_currentState = Java_SM3Thread.States.SMC0;
+            return true;
         }
 
 		// Execute method
 		private void exec() {
-		    boolean result;
-
 			while(true) {
 			    switch(java_currentState) {
                     case SMC0:
-                        result = exec_SMC0();
+                        exec_SMC0();
                         break;
                     case SMC1:
-                        result = exec_SMC1();
+                        exec_SMC1();
                         break;
 			    }
-			}
+            }
 		}
 
 		// Run method
@@ -105,6 +107,7 @@ public class Test2 {
 	Test2() {
 		// Instantiate global variables
 		y = 0;
+        java_T_SM3 = new Test2.Java_SM3Thread();
 	}
 
 	// Start all threads

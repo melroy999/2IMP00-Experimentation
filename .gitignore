@@ -4,5 +4,6 @@
 .coverage/
 __pycache__/
 SLCOtoJAVA2.0_det/.idea/
+SLCOtoJAVA2.0_det/out/
 
 .idea/workspace.xml
