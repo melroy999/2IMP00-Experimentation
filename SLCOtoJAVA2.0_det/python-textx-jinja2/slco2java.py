@@ -1,12 +1,12 @@
 # SLCO 2.0 to multi-threaded Java transformation, limited to SLCO models consisting of a single object
 
 # import libraries
-from collections import defaultdict
 from enum import Enum
 
 import jinja2
 
 from jinja2_filters import *
+from jinja2_view_models import to_view_model
 from smt_helper_functions import *
 from slcolib import *
 import os
@@ -81,27 +81,6 @@ def to_simple_ast(ast):
         raise Exception("NYI")
 
 
-def create_shallow_ast_copy(model):
-    """Only gather the data that we are interested in from the textX AST"""
-    if model is None:
-        return None
-
-    if type(model) in (str, int, float, bool):
-        return model
-
-    properties = {}
-    for key in dir(model):
-        if (not key.startswith("_")) and (not callable(getattr(model, key))) and (key not in ["parent"]):
-            attr_value = getattr(model, key)
-
-            if type(attr_value) is list:
-                properties[key] = [create_shallow_ast_copy(v) for v in attr_value]
-            else:
-                properties[key] = create_shallow_ast_copy(attr_value)
-
-    return type(model.__class__.__name__, (), properties)()
-
-
 def transform_statement(_s):
     """Convert the statement to a more workable format"""
     class_name = _s.__class__.__name__
@@ -146,17 +125,13 @@ def transform_transition(_t):
     elif class_name == "Expression":
         transition_guard = transform_statement(first_statement)
 
-    # Create a mutable copy.
-    properties = {
-        "source": _t.source.name,
-        "target": _t.target.name,
-        "priority": _t.priority,
-        "guard": True if transition_guard is None else transition_guard,
-        "statements": [transform_statement(_s) for _s in _t.statements],
-        "__repr__": lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard.smt))
-    }
-
-    return type(_t.__class__.__name__, (), properties)()
+    _t.source = _t.source.name
+    _t.target = _t.target.name
+    _t.priority = _t.priority
+    _t.guard = True if transition_guard is None else transition_guard
+    _t.statements = [transform_statement(_s) for _s in _t.statements]
+    type(_t).__repr__ = lambda self: "%s->%s[%s]" % (self.source, self.target, expression_to_string(self.guard.smt))
+    return _t
 
 
 # noinspection SpellCheckingInspection
@@ -166,12 +141,15 @@ def transform_state_machine(_sm):
     _sm.states = [_s.name for _s in _sm.states]
     _sm.name_to_variable = {_v.name: _v for _v in _sm.variables}
     _sm.transitions.sort(key=lambda x: (x.source.name, x.target.name))
+    for _t in _sm.transitions:
+        transform_transition(_t)
 
     adjacency_list = {
         _s: [
-            transform_transition(_t) for _t in _sm.transitions if _t.source.name == _s
+            _t for _t in _sm.transitions if _t.source == _s
         ] for _s in _sm.states
     }
+
     _sm.transitions = adjacency_list
 
 
@@ -415,8 +393,6 @@ def calculate_truth_matrices(_vars, transitions):
 
 def preprocess(model):
     """"Gather additional data about the model"""
-    model = create_shallow_ast_copy(model)
-
     # Extend and transform the model to one fitting our purpose.
     transform_model(model)
 

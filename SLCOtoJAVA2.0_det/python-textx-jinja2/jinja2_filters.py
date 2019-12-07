@@ -26,7 +26,7 @@ def get_default_variable_value(s):
 
 
 def list_states(states):
-    return ", ".join([s.name for s in states])
+    return ", ".join(states)
 
 
 def get_classes(model):
