@@ -128,12 +128,14 @@ def transform_transition(_t):
     _t.source = _t.source.name
     _t.target = _t.target.name
     _t.priority = _t.priority
-
     _t.guard = True if transition_guard is None else transition_guard
+
     if transition_guard is None:
         _t.statements = [transform_statement(_s) for _s in _t.statements]
     else:
-        _t.statements = [transform_statement(_s) for _s in _t.statements[1:]]
+        _t.statements = [transform_statement(_s) for _s in _t.statements]
+        if class_name == "Expression":
+            _t.statements = _t.statements[1:]
 
     type(_t).__repr__ = lambda self: "%s->%s[%s]" % (
         self.source, self.target, self.guard if type(self.guard) == bool else expression_to_string(self.guard.smt)

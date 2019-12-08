@@ -1,5 +1,4 @@
-java_choice = java_randomGenerator.nextInt({{model | length}});
-switch(java_choice) {
+switch(java_randomGenerator.nextInt({{model | length}})) {
 {% for i in range(0, model | length) %}
 {% set choice = model[i] %}
     case {{i}}:

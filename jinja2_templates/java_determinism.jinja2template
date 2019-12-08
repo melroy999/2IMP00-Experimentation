@@ -35,7 +35,6 @@ public class {{model.name}} {
 
 	class Java_{{sm.name}}Thread extends Thread implements Java_{{sm.name}}Thread_States {
         private Thread java_t;
-        private String java_threadName = "{{sm.name}}Thread";
 
         // Current state
         private Java_{{sm.name}}Thread.States java_currentState;
@@ -47,11 +46,13 @@ public class {{model.name}} {
         // Counter of main while-loop iterations
         long java_transition_counter;
         {% endif %}
+        {% if sm.variables | length > 0 %}
 
         // Thread local variables
         {% for v in sm.variables %}
         private {{v.type | get_java_type(False)}} {{v.name}};
         {% endfor %}
+        {% endif %}
 
 		// Constructor
 		Java_{{sm.name}}Thread () {
@@ -70,10 +71,9 @@ public class {{model.name}} {
         private boolean exec_{{s}}() {
 			// variable to store non-deterministic choices
 			{% if sm.groupings[s] %}
-			int java_choice;
 			{{sm.groupings[s] | get_choice_structure(add_counter, sm) | indent(12, False) }}
 			{% endif %}
-			{% if sm.groupings[s][1] | length > 1 %}
+			{% if sm.groupings[s] == none or sm.groupings[s][1] | length > 1 %}
 			return false;
 			{% endif %}
         }
@@ -99,6 +99,8 @@ public class {{model.name}} {
                         {% endif %}
                         break;
                     {% endfor %}
+                    default:
+						return;
 			    }
 			    {% if add_counter %}
 
@@ -118,7 +120,7 @@ public class {{model.name}} {
 		// Start method
 		public void start() {
 			if (java_t == null) {
-				java_t = new Thread(this);
+				java_t = new Thread(this, "{{sm.name}}Thread");
 				java_t.start();
 			}
 		}

@@ -81,7 +81,7 @@ def to_java_statement(model, add_counter):
         return "%s;" % get_instruction(model)
     elif model_class == "Expression":
         body_str = "return false"
-        return "if(!(%s)) %s" % (get_instruction(model), body_str)
+        return "if(!(%s)) %s;" % (get_instruction(model), body_str)
     elif model_class == "Composite":
         return composite_statement_template.render(
             model=model
