@@ -22,7 +22,7 @@ model Test2 {
 			  b or not b
 			}
 			from SMC1 to SMC0 {
-              [y := y + 1]
+              [True; y := y + 1]
 			}
 	    }
 	    SM1 {

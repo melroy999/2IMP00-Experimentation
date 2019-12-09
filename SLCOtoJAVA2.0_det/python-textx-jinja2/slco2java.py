@@ -6,11 +6,9 @@ from enum import Enum
 import jinja2
 
 from jinja2_filters import *
-from jinja2_view_models import to_view_model
 from smt_helper_functions import *
 from slcolib import *
 import os
-from timeit import default_timer as timer
 
 this_folder = dirname(__file__)
 
@@ -26,16 +24,6 @@ smt_operator_mappings["!"] = "not"
 smt_operator_mappings["&&"] = "and"
 smt_operator_mappings["||"] = "or"
 smt_operator_mappings["%"] = "mod"
-
-
-# smt_operator_mappings = defaultdict(list, {
-#     "<>": "!=",
-#     "!": "not",
-#     "&&": "and",
-#     "||": "or",
-#     "%": "mod"
-# })
-# smt_operator_mappings.__missing__ = lambda key: key
 
 
 def to_simple_ast(ast):
@@ -113,6 +101,22 @@ def expression_to_string(ast):
                 return "(%s %s)" % (operator, expression_to_string(ops[0]))
 
 
+true_primary_properties = {
+    "value": True,
+    "sign": "",
+    "body": None,
+    "ref": None
+}
+
+true_expression_properties = {
+    "left": type("Primary", (object,), true_primary_properties)(),
+    "op": "",
+    "right": None,
+    "smt": True
+}
+true_expression = type("Expression", (object,), true_expression_properties)()
+
+
 def transform_transition(_t):
     """Convert the transition to a more workable format"""
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
@@ -128,7 +132,7 @@ def transform_transition(_t):
     _t.source = _t.source.name
     _t.target = _t.target.name
     _t.priority = _t.priority
-    _t.guard = True if transition_guard is None else transition_guard
+    _t.guard = true_expression if transition_guard is None else transition_guard
 
     if transition_guard is None:
         _t.statements = [transform_statement(_s) for _s in _t.statements]
@@ -138,7 +142,7 @@ def transform_transition(_t):
             _t.statements = _t.statements[1:]
 
     type(_t).__repr__ = lambda self: "%s->%s[%s]" % (
-        self.source, self.target, self.guard if type(self.guard) == bool else expression_to_string(self.guard.smt)
+        self.source, self.target, expression_to_string(self.guard.smt)
     )
     return _t
 
@@ -153,13 +157,11 @@ def transform_state_machine(_sm):
     for _t in _sm.transitions:
         transform_transition(_t)
 
-    adjacency_list = {
+    _sm.adjacency_list = {
         _s: [
             _t for _t in _sm.transitions if _t.source == _s
         ] for _s in _sm.states
     }
-
-    _sm.transitions = adjacency_list
 
 
 def transform_model(_ast):
@@ -323,24 +325,24 @@ def add_determinism_annotations(model):
     """Observe the transitions in the model and determine which can be done deterministically"""
     for _c in model.classes:
         for _sm in _c.statemachines:
-            _sm.groupings = {_s: None for _s in _sm.transitions.keys()}
+            _sm.groupings = {_s: None for _s in _sm.adjacency_list.keys()}
 
-            for _s, transitions in _sm.transitions.items():
+            for _s, transitions in _sm.adjacency_list.items():
                 _vars = {**_c.name_to_variable, **_sm.name_to_variable}
 
                 if len(transitions) > 0:
-                    # Are there transitions that are never satisfiable?
-                    inactive_transitions = [
-                        _t for _t in transitions if _t.guard is not True and not do_z3_truth_check(_t.guard.smt, _vars, False)
+                    # Are there transitions that are trivially unsatisfiable?
+                    trivially_unsatisfiable = [
+                        _t for _t in transitions if not do_z3_truth_check(_t.guard.smt, _vars, False)
                     ]
 
-                    # First check if any of the transitions are vacuously true.
-                    vacuously_active_transitions = [
-                        _t for _t in transitions if _t.guard is True or do_z3_truth_check(_t.guard.smt, _vars)
+                    # Check if any of the transitions are trivially satisfiable.
+                    trivially_satisfiable = [
+                        _t for _t in transitions if do_z3_truth_check(_t.guard.smt, _vars)
                     ]
 
                     # Find the transitions that remain.
-                    solved_transitions = vacuously_active_transitions + inactive_transitions
+                    solved_transitions = trivially_satisfiable + trivially_unsatisfiable
                     remaining_transitions = [_t for _t in transitions if _t not in solved_transitions]
 
                     # Create the truth matrices for the AND, XOR and implication operators.
@@ -350,38 +352,41 @@ def add_determinism_annotations(model):
                     if len(remaining_transitions) > 0:
                         sub_groupings.append(find_deterministic_groups(remaining_transitions, _vars, truth_matrices))
 
-                    choices = vacuously_active_transitions + sub_groupings
+                    choices = trivially_satisfiable + sub_groupings
+                    if len(choices) == 0:
+                        continue
+
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
-                    _sm.groupings[_s] = format_decision_group_tree(groupings, vacuously_active_transitions)
+                    _sm.groupings[_s] = format_decision_group_tree(groupings, trivially_satisfiable)
 
-                    print("#"*120)
-                    print("State Machine:", _sm.name)
-                    print("State:", _s)
-                    print()
-
-                    if len([_t for _t in vacuously_active_transitions if _t.guard is not True and _t.guard.smt is not True]) > 0:
-                        print("WARNING: The following transition guards hold vacuously TRUE:")
-                        for _t in [_t for _t in vacuously_active_transitions if _t.guard is not True and _t.guard.smt is not True]:
-                            print("\t- %s" % _t)
-                        print()
-
-                    if len([_t for _t in inactive_transitions]) > 0:
-                        print("WARNING: The following transition guards are always FALSE:")
-                        for _t in [_t for _t in inactive_transitions]:
-                            print("\t- %s" % _t)
-                        print()
-
-                    print("Transitions:")
-                    for _t in transitions:
-                        print("\t- %s" % _t)
-                    print()
-
-                    print("Decisions:")
-                    print_decision_groups(_sm.groupings[_s])
-                    print("#"*120)
-                    print()
+                    print_determinism_report(_s, _sm, transitions, trivially_satisfiable, trivially_unsatisfiable)
 
     return model
+
+
+def print_determinism_report(_s, _sm, transitions, trivially_satisfiable, trivially_unsatisfiable):
+    print("#" * 120)
+    print("State Machine:", _sm.name)
+    print("State:", _s)
+    print()
+    if len([_t for _t in trivially_satisfiable if _t.guard is not True and _t.guard.smt is not True]) > 0:
+        print("WARNING: The following transition guards hold vacuously TRUE:")
+        for _t in [_t for _t in trivially_satisfiable if _t.guard is not True and _t.guard.smt is not True]:
+            print("\t- %s" % _t)
+        print()
+    if len([_t for _t in trivially_unsatisfiable]) > 0:
+        print("WARNING: The following transition guards are always FALSE:")
+        for _t in [_t for _t in trivially_unsatisfiable]:
+            print("\t- %s" % _t)
+        print()
+    print("Transitions:")
+    for _t in transitions:
+        print("\t- %s" % _t)
+    print()
+    print("Decisions:")
+    print_decision_groups(_sm.groupings[_s])
+    print("#" * 120)
+    print()
 
 
 def calculate_truth_matrices(_vars, transitions):
