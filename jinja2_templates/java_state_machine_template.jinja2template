@@ -41,7 +41,7 @@ class Java_{{model.name}}Thread extends Thread implements Java_{{parent_class}}_
     {% for s in model.states %}
     private boolean exec_{{s}}() {
         {% if model.groupings[s] %}
-        {{model.groupings[s] | get_choice_structure(add_counter, model) | indent(12, False)}}
+        {{model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)}}
         {% endif %}
         {% if model.groupings[s] == none or model.groupings[s][1] | length > 1 %}
         return false;
