@@ -1,6 +1,4 @@
-from jinja2 import FileSystemLoader, Environment
-
-vercors_verif = False
+import jinja2
 
 
 class TransitDict(dict):
@@ -43,6 +41,22 @@ def get_default_variable_value(model):
 
 def comma_separated_list(model):
     return ", ".join(model)
+
+
+def get_variable_list(model):
+    variables = ["%s %s" % (get_java_type(_v.type, False), _v.name) for _v in sorted(model)]
+    return comma_separated_list(variables)
+
+
+def get_variable_instantiation_list(model):
+    # {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
+    variables = []
+    for _v in sorted(model, key=lambda v: v.left.name):
+        if _v.left.type.size > 1:
+            variables.extend("new %s %s" % (get_java_type(_v.left.type, False), _v.right))
+        else:
+            variables.extend("%s" % _v.right)
+    return comma_separated_list(variables)
 
 
 def get_classes(model):
@@ -127,19 +141,49 @@ def get_guard_statement(model):
     pass
 
 
-file_loader = FileSystemLoader('../../jinja2_templates')
-env = Environment(
-    loader=file_loader,
+def render_class(model, add_counter):
+    return java_class_template.render(
+        model=model,
+        add_counter=add_counter
+    )
+
+
+def render_state_machine(model, add_counter, parent_class):
+    return java_state_machine_template.render(
+        model=model,
+        add_counter=add_counter,
+        parent_class=parent_class
+    )
+
+
+# Initialize the template engine.
+env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader('../../jinja2_templates'),
     trim_blocks=True,
     lstrip_blocks=True,
+    extensions=['jinja2.ext.loopcontrols', 'jinja2.ext.do', ]
 )
 
+# Register the filters
+env.filters['render_class'] = render_class
+env.filters['render_state_machine'] = render_state_machine
+
+env.filters['get_java_type'] = get_java_type
+env.filters['get_default_variable_value'] = get_default_variable_value
+env.filters['comma_separated_list'] = comma_separated_list
+env.filters['get_classes'] = get_classes
 env.filters['get_choice_structure'] = get_choice_structure
 env.filters['to_java_statement'] = to_java_statement
 env.filters['get_instruction'] = get_instruction
 env.filters['get_guard_statement'] = get_guard_statement
+env.filters['get_variable_list'] = get_variable_list
+env.filters['get_variable_instantiation_list'] = get_variable_instantiation_list
 
 
+# load the Java templates
+java_model_template = env.get_template('java_model_template.jinja2template')
+java_class_template = env.get_template('java_class_template.jinja2template')
+java_state_machine_template = env.get_template('java_state_machine_template.jinja2template')
 deterministic_choice_template = env.get_template('java_deterministic_choice.jinja2template')
 non_deterministic_choice_template = env.get_template('java_non_deterministic_choice.jinja2template')
 transition_template = env.get_template('java_transition.jinja2template')

@@ -261,43 +261,23 @@ def preprocess(model):
     return model
 
 
-def slco_to_java(model_folder, model, add_counter):
+add_counter = False
+model_folder, model_name = None, None
+
+
+def slco_to_java(model):
     """The translation function"""
+    global add_counter, model_folder, model_name
     out_file = open(os.path.join(model_folder, model.name + ".java"), 'w')
-
-    # Initialize the template engine.
-    jinja_env = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(join(this_folder, '../../jinja2_templates')),
-        trim_blocks=True,
-        lstrip_blocks=True,
-        extensions=['jinja2.ext.loopcontrols', 'jinja2.ext.do', ]
-    )
-
-    # Register the filters
-    jinja_env.filters['get_java_type'] = get_java_type
-    jinja_env.filters['get_default_variable_value'] = get_default_variable_value
-    jinja_env.filters['comma_separated_list'] = comma_separated_list
-    jinja_env.filters['get_classes'] = get_classes
-    jinja_env.filters['get_choice_structure'] = get_choice_structure
-    jinja_env.filters['to_java_statement'] = to_java_statement
-    jinja_env.filters['get_instruction'] = get_instruction
-    jinja_env.filters['get_guard_statement'] = get_guard_statement
-
-    # load the Java template
-    template = jinja_env.get_template('java_determinism.jinja2template')
 
     # write the program
     out_file.write(
-        template.render(
+        java_model_template.render(
             model=model,
             add_counter=add_counter
         )
     )
     out_file.close()
-
-
-add_counter = False
-model_folder, model_name = None, None
 
 
 def main(_args):
@@ -328,7 +308,7 @@ def main(_args):
     # preprocess
     model = preprocess(model)
     # translate
-    slco_to_java(model_folder, model, add_counter)
+    slco_to_java(model)
 
 
 if __name__ == '__main__':

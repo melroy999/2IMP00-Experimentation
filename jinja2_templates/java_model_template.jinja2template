@@ -1,0 +1,56 @@
+import java.util.Random;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.Arrays;
+
+// main class
+public class {{model.name}} {
+    // The objects in the model.
+    private final SLCO_Class[] objects;
+
+    {% if add_counter %}
+    // Upperbound for transition counter
+    private static final long java_COUNTER_BOUND = 300000000L;
+
+    {% endif %}
+    interface SLCO_Class {
+        void startThreads();
+        void joinThreads();
+    }
+
+    {% for c in model.classes %}
+    {{c | render_class(add_counter) | indent(4, False)}}
+
+    {% endfor %}
+    {{model.name}}() {
+        //Instantiate the objects.
+        objects = new SLCO_Class[] {
+            {% for c in model.classes %}
+            {% for o in c.objects %}
+            new {{c.name}}({{o.assignments | get_variable_instantiation_list}}),
+            {% endfor %}
+            {% endfor %}
+        };
+    }
+
+    // Start all threads
+    private void startThreads() {
+        for(SLCO_Class o : objects) {
+            o.startThreads();
+        }
+    }
+
+    // Join all threads
+    private void joinThreads() {
+        for(SLCO_Class o : objects) {
+            o.joinThreads();
+        }
+    }
+
+    // Run application
+    public static void main(String[] args) {
+        {{model.name}} java_ap = new {{model.name}}();
+        java_ap.startThreads();
+        java_ap.joinThreads();
+    }
+}
+

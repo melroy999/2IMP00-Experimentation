@@ -1,0 +1,91 @@
+class Java_{{model.name}}Thread extends Thread implements Java_{{parent_class}}_{{model.name}}Thread_States {
+    private Thread java_t;
+
+    // Current state
+    private Java_{{model.name}}Thread.States java_currentState;
+
+    // Random number generator to handle non-determinism
+    private Random java_randomGenerator;
+    {% if add_counter %}
+
+    // Counter of main while-loop iterations
+    long java_transition_counter;
+    {% endif %}
+    {% if model.variables | length > 0 %}
+
+    // Thread local variables
+    {% for v in model.variables %}
+    private {{v.type | get_java_type(False)}} {{v.name}};
+    {% endfor %}
+    {% endif %}
+
+    // Constructor
+    Java_{{model.name}}Thread () {
+        java_randomGenerator = new Random();
+        {% if add_counter %}
+        java_transition_counter = 0;
+        {% endif %}
+        java_currentState = Java_{{model.name}}Thread.States.{{model.initialstate}};
+        {% for v in model.variables %}
+        {{v.name}} = {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
+        {% endfor %}
+    }
+
+    {# Separate execution methods for each state. #}
+    {% for s in model.states %}
+    private boolean exec_{{s}}() {
+        {% if model.groupings[s] %}
+        {{model.groupings[s] | get_choice_structure(add_counter, model) | indent(12, False)}}
+        {% endif %}
+        {% if model.groupings[s] == none or model.groupings[s][1] | length > 1 %}
+        return false;
+        {% endif %}
+    }
+
+    {% endfor %}
+    // Execute method
+    private void exec() {
+        {% if add_counter %}
+        boolean result = false;
+        {% endif %}
+        {% if add_counter %}
+        while(java_transition_counter < java_COUNTER_BOUND) {
+        {% else %}
+        while(true) {
+        {% endif %}
+            switch(java_currentState) {
+                {% for s in model.states %}
+                case {{s}}:
+                    {% if add_counter %}
+                    result = exec_{{s}}();
+                    {% else %}
+                    exec_{{s}}();
+                    {% endif %}
+                    break;
+                {% endfor %}
+                default:
+                    return;
+            }
+            {% if add_counter %}
+
+            // Increment counter
+            if(result) {
+                java_transition_counter++;
+            }
+            {% endif %}
+        }
+    }
+
+    // Run method
+    public void run() {
+        exec();
+    }
+
+    // Start method
+    public void start() {
+        if (java_t == null) {
+            java_t = new Thread(this, "{{model.name}}Thread");
+            java_t.start();
+        }
+    }
+}

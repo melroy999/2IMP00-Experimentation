@@ -143,8 +143,9 @@ def transform_state_machine(_sm):
 def transform_model(_ast):
     """Transform the model such that it provides all the data required for the code conversion"""
     for _c in _ast.classes:
-        _c.name_to_variable = {_v.name: _v for _v in _c.variables}
         _c.objects = []
+        _c.name_to_variable = {_v.name: _v for _v in _c.variables}
+
         for _sm in _c.statemachines:
             transform_state_machine(_sm)
 
