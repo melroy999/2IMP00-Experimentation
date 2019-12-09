@@ -48,7 +48,6 @@ public class Test2 {
 		}
 
         private boolean exec_SMC0() {
-			// variable to store non-deterministic choices
 			switch(java_randomGenerator.nextInt(3)) {
                 case 0:
                     java_currentState = Java_SM3Thread.States.SMC1;
@@ -75,9 +74,7 @@ public class Test2 {
         }
 
         private boolean exec_SMC1() {
-			// variable to store non-deterministic choices
-			if(!(true)) return false;
-            y = y + 1;
+			y = y + 1;
 
             java_currentState = Java_SM3Thread.States.SMC0;
             return true;
@@ -150,7 +147,6 @@ public class Test2 {
 		}
 
         private boolean exec_SMC0() {
-			// variable to store non-deterministic choices
 			switch(java_randomGenerator.nextInt(3)) {
                 case 0:
                     if (x[0] <= 3) {
@@ -200,7 +196,6 @@ public class Test2 {
         }
 
         private boolean exec_SMC1() {
-			// variable to store non-deterministic choices
 			return false;
         }
 
@@ -271,7 +266,6 @@ public class Test2 {
 		}
 
         private boolean exec_SMC0() {
-			// variable to store non-deterministic choices
 			switch(java_randomGenerator.nextInt(2)) {
                 case 0:
                     if (x[0] <= 3) {
@@ -299,7 +293,6 @@ public class Test2 {
         }
 
         private boolean exec_SMC1() {
-			// variable to store non-deterministic choices
 			return false;
         }
 

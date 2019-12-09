@@ -69,7 +69,6 @@ public class {{model.name}} {
 		{# Separate execution methods for each state. #}
         {% for s in sm.states %}
         private boolean exec_{{s}}() {
-			// variable to store non-deterministic choices
 			{% if sm.groupings[s] %}
 			{{sm.groupings[s] | get_choice_structure(add_counter, sm) | indent(12, False) }}
 			{% endif %}

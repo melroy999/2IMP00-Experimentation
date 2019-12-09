@@ -1,8 +1,20 @@
 from jinja2 import FileSystemLoader, Environment
 
-from slco2java import TransitDict
-
 vercors_verif = False
+
+
+class TransitDict(dict):
+    """A dictionary that returns the key upon query if the key is not present within the dictionary"""
+    def __missing__(self, key):
+        return key
+
+
+java_operator_mappings = TransitDict()
+java_operator_mappings["<>"] = "!="
+java_operator_mappings["="] = "=="
+java_operator_mappings["and"] = "&&"
+java_operator_mappings["or"] = "||"
+java_operator_mappings["not"] = "!"
 
 
 def get_java_type(model, ignore_size):
@@ -35,14 +47,6 @@ def comma_separated_list(model):
 
 def get_classes(model):
     return model.classes
-
-
-java_operator_mappings = TransitDict()
-java_operator_mappings["<>"] = "!="
-java_operator_mappings["="] = "=="
-java_operator_mappings["and"] = "&&"
-java_operator_mappings["or"] = "||"
-java_operator_mappings["not"] = "!"
 
 
 def get_instruction(m):
