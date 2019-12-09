@@ -1,3 +1,9 @@
+interface Java_{{parent_class}}_{{model.name}}Thread_States {
+    enum States {
+        {{model.states | comma_separated_list}}
+    }
+}
+
 class Java_{{model.name}}Thread extends Thread implements Java_{{parent_class}}_{{model.name}}Thread_States {
     private Thread java_t;
 

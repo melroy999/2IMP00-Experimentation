@@ -1,14 +1,5 @@
-{% for sm in model.statemachines %}
-interface Java_{{model.name}}_{{sm.name}}Thread_States {
-    // Enum type for state machine states
-    enum States {
-        {{sm.states | comma_separated_list}}
-    }
-}
-
-{% endfor %}
 // representation of a class
-public class {{model.name}} implements SLCO_Class {
+public static class {{model.name}} implements SLCO_Class {
     {% if model.statemachines | length > 0 %}
     // The threads
     {% for sm in model.statemachines %}

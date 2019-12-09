@@ -15,29 +15,8 @@ public class Test2 {
         void joinThreads();
     }
 
-    interface Java_P_SM3Thread_States {
-        // Enum type for state machine states
-        enum States {
-            SMC0, SMC1
-        }
-    }
-
-    interface Java_P_SM1Thread_States {
-        // Enum type for state machine states
-        enum States {
-            SMC0, SMC1
-        }
-    }
-
-    interface Java_P_SM2Thread_States {
-        // Enum type for state machine states
-        enum States {
-            SMC0, SMC1
-        }
-    }
-
     // representation of a class
-    public class P implements SLCO_Class {
+    public static class P implements SLCO_Class {
         // The threads
         private Java_SM3Thread java_T_SM3;
         private Java_SM1Thread java_T_SM1;
@@ -45,6 +24,12 @@ public class Test2 {
 
         // Global variables
         private volatile int y;
+
+        interface Java_P_SM3Thread_States {
+            enum States {
+                SMC0, SMC1
+            }
+        }
 
         class Java_SM3Thread extends Thread implements Java_P_SM3Thread_States {
             private Thread java_t;
@@ -137,6 +122,12 @@ public class Test2 {
                     java_t = new Thread(this, "SM3Thread");
                     java_t.start();
                 }
+            }
+        }
+
+        interface Java_P_SM1Thread_States {
+            enum States {
+                SMC0, SMC1
             }
         }
 
@@ -249,6 +240,12 @@ public class Test2 {
                     java_t = new Thread(this, "SM1Thread");
                     java_t.start();
                 }
+            }
+        }
+
+        interface Java_P_SM2Thread_States {
+            enum States {
+                SMC0, SMC1
             }
         }
 
