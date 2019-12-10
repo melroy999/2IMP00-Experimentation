@@ -24,6 +24,7 @@ public class Test2 {
 
         // Global variables
         private volatile int y;
+        private volatile int[] ui;
 
         interface Java_P_SM3Thread_States {
             enum States {
@@ -191,10 +192,10 @@ public class Test2 {
                         }
                         return false;
                     case 2:
-                        if (x[1] == 2) {
+                        if (x[1] == 3) {
                             java_currentState = Java_SM1Thread.States.SMC1;
                             return true;
-                        } else if(x[1] == 3) {
+                        } else if(x[1] == 2) {
                             java_currentState = Java_SM1Thread.States.SMC1;
                             return true;
                         }
@@ -340,9 +341,10 @@ public class Test2 {
         }
 
         // Constructor for main class
-        P(int y) {
+        P(int[] ui, int y) {
             // Instantiate global variables
             this.y = y;
+            this.ui = ui;
             java_T_SM3 = new P.Java_SM3Thread();
             java_T_SM1 = new P.Java_SM1Thread();
             java_T_SM2 = new P.Java_SM2Thread();
@@ -373,8 +375,8 @@ public class Test2 {
     Test2() {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
-            new P(1),
-            new P(),
+            new P(new int[] {0, 0}, 1),
+            new P(new int[] {0, 0}, 0),
         };
     }
 

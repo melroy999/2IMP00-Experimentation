@@ -26,7 +26,7 @@ public class {{model.name}} {
         objects = new SLCO_Class[] {
             {% for c in model.classes %}
             {% for o in c.objects %}
-            new {{c.name}}({{o.assignments | get_variable_instantiation_list}}),
+            new {{c.name}}({{o.assignments | get_variable_instantiation_list(c.variables)}}),
             {% endfor %}
             {% endfor %}
         };

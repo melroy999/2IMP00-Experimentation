@@ -3,7 +3,7 @@ model Test2 {
 
 	classes
 	P {
-	  variables Integer y
+	  variables Integer y Integer[2] ui
 	  state machines
 		SM3 {
 		  variables Integer x Boolean b

@@ -44,20 +44,25 @@ def comma_separated_list(model):
 
 
 def get_variable_list(model):
-    variables = ["%s %s" % (get_java_type(_v.type, False), _v.name) for _v in sorted(model)]
+    variables = ["%s %s" % (get_java_type(_v.type, False), _v.name) for _v in sorted(model, key=lambda v: v.name)]
     return comma_separated_list(variables)
 
 
-def get_variable_instantiation_list(model):
-    # {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
-    # TODO handle situations where the variable is not instantiated (default instantiation)
-    variables = []
-    for _v in sorted(model, key=lambda v: v.left.name):
-        if _v.left.type.size > 1:
-            variables.extend("new %s %s" % (get_java_type(_v.left.type, False), _v.right))
+def get_variable_instantiation_list(model, variables):
+    instantiated_variables = {
+        _v.left.name: _v.right for _v in model
+    }
+
+    variable_instantiations = []
+    for _v in sorted(variables, key=lambda v: v.name):
+        # Is a value assigned to the variable?
+        value = instantiated_variables[_v.name] if _v.name in instantiated_variables else get_default_variable_value(_v)
+
+        if _v.type.size > 1:
+            variable_instantiations.append("new %s %s" % (get_java_type(_v.type, False), value))
         else:
-            variables.extend("%s" % _v.right)
-    return comma_separated_list(variables)
+            variable_instantiations.append("%s" % value)
+    return comma_separated_list(variable_instantiations)
 
 
 def get_classes(model):
