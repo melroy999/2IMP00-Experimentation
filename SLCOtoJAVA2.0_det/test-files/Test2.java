@@ -168,7 +168,6 @@ public class Test2 {
                                 case 0:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
-                                        x[0] = 0;
                                         y = y + 1;
 
                                         java_currentState = Java_SM1Thread.States.SMC1;
@@ -178,6 +177,7 @@ public class Test2 {
                                 case 1:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
+                                        x[0] = 0;
                                         y = y + 1;
 
                                         java_currentState = Java_SM1Thread.States.SMC1;
@@ -374,7 +374,7 @@ public class Test2 {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
             new P(1),
-            new P(2),
+            new P(),
         };
     }
 

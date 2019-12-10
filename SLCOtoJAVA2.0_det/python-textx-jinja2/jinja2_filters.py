@@ -50,6 +50,7 @@ def get_variable_list(model):
 
 def get_variable_instantiation_list(model):
     # {% if v.type.size > 1 %}new {{v.type | get_java_type(False)}} {% endif %}{{v | get_default_variable_value}};
+    # TODO handle situations where the variable is not instantiated (default instantiation)
     variables = []
     for _v in sorted(model, key=lambda v: v.left.name):
         if _v.left.type.size > 1:
