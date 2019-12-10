@@ -1,6 +1,9 @@
 import jinja2
 
 
+vercors_verif = False
+
+
 class TransitDict(dict):
     """A dictionary that returns the key upon query if the key is not present within the dictionary"""
     def __missing__(self, key):
@@ -60,6 +63,8 @@ def get_variable_instantiation_list(model, variables):
 
         if _v.type.size > 1:
             variable_instantiations.append("new %s %s" % (get_java_type(_v.type, False), value))
+        elif _v.type.base == "Byte" and not vercors_verif:
+            variable_instantiations.append("(byte) %s" % value)
         else:
             variable_instantiations.append("%s" % value)
     return comma_separated_list(variable_instantiations)
@@ -143,7 +148,6 @@ def get_guard_statement(model):
         #   - Remove formulas that are equivalent to an already encountered formula.
         #   - Use implication to check whether one formula is contained in another?
         return " || ".join({"%s" % get_guard_statement(s) for s in model[1]})
-    pass
 
 
 def render_model(model, add_counter):
