@@ -272,10 +272,7 @@ def slco_to_java(model):
 
     # write the program
     out_file.write(
-        java_model_template.render(
-            model=model,
-            add_counter=add_counter
-        )
+        render_model(model, add_counter)
     )
     out_file.close()
 

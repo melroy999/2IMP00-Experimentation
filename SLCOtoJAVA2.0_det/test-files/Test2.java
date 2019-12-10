@@ -164,18 +164,18 @@ public class Test2 {
                         }
                         return false;
                     case 1:
-                        if (((x[0] == 0)) || ((x[0] == 0))) {
+                        if (x[1] == 3) {
+                            java_currentState = Java_SM1Thread.States.SMC1;
+                            return true;
+                        } else if(x[1] == 2) {
+                            java_currentState = Java_SM1Thread.States.SMC1;
+                            return true;
+                        }
+                        return false;
+                    case 2:
+                        if (x[0] == 0) {
                             switch(java_randomGenerator.nextInt(2)) {
                                 case 0:
-                                    if (x[0] == 0) {
-                                        if(!(x[0] == 0)) return false;
-                                        y = y + 1;
-
-                                        java_currentState = Java_SM1Thread.States.SMC1;
-                                        return true;
-                                    }
-                                    return false;
-                                case 1:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
                                         x[0] = 0;
@@ -185,17 +185,17 @@ public class Test2 {
                                         return true;
                                     }
                                     return false;
+                                case 1:
+                                    if (x[0] == 0) {
+                                        if(!(x[0] == 0)) return false;
+                                        y = y + 1;
+
+                                        java_currentState = Java_SM1Thread.States.SMC1;
+                                        return true;
+                                    }
+                                    return false;
                             }
                         } else if(x[0] == 1) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                    case 2:
-                        if (x[1] == 3) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
-                            return true;
-                        } else if(x[1] == 2) {
                             java_currentState = Java_SM1Thread.States.SMC1;
                             return true;
                         }

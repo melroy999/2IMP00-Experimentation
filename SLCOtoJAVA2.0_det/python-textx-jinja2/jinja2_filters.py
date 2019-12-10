@@ -65,10 +65,6 @@ def get_variable_instantiation_list(model, variables):
     return comma_separated_list(variable_instantiations)
 
 
-def get_classes(model):
-    return model.classes
-
-
 def get_instruction(m):
     model_class = m.__class__.__name__
 
@@ -142,9 +138,19 @@ def get_guard_statement(model):
     if model.__class__.__name__ == "Transition":
         return get_instruction(model.guard)
     else:
-        # Construct a disjunction of statements.
-        return " || ".join(["(%s)" % get_guard_statement(s) for s in model[1]])
+        # Construct a disjunction of statements. Brackets are not needed because of the precedence order.
+        # TODO simplify using SMT.
+        #   - Remove formulas that are equivalent to an already encountered formula.
+        #   - Use implication to check whether one formula is contained in another?
+        return " || ".join({"%s" % get_guard_statement(s) for s in model[1]})
     pass
+
+
+def render_model(model, add_counter):
+    return java_model_template.render(
+        model=model,
+        add_counter=add_counter
+    )
 
 
 def render_class(model, add_counter):
@@ -177,14 +183,12 @@ env.filters['render_state_machine'] = render_state_machine
 env.filters['get_java_type'] = get_java_type
 env.filters['get_default_variable_value'] = get_default_variable_value
 env.filters['comma_separated_list'] = comma_separated_list
-env.filters['get_classes'] = get_classes
 env.filters['get_choice_structure'] = get_choice_structure
 env.filters['to_java_statement'] = to_java_statement
 env.filters['get_instruction'] = get_instruction
 env.filters['get_guard_statement'] = get_guard_statement
 env.filters['get_variable_list'] = get_variable_list
 env.filters['get_variable_instantiation_list'] = get_variable_instantiation_list
-
 
 # load the Java templates
 java_model_template = env.get_template('java_model_template.jinja2template')
