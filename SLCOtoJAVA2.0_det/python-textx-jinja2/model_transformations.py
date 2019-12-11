@@ -86,6 +86,7 @@ def to_simple_ast(ast):
 
 
 def gather_used_variables(_s):
+    """Gather the variables that are used within the statements"""
     class_name = _s.__class__.__name__
     if class_name in ["Assignment", "Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
         if _s.right is None:
@@ -101,10 +102,26 @@ def gather_used_variables(_s):
         if _s.index is None:
             return {(_s.var.name, None)}
         else:
-            return {(_s.var.name, get_instruction(_s.index))}
+            # The index might also hide a variable within it. Account for these as well.
+            return {(_s.var.name, get_instruction(_s.index))} | gather_used_variables(_s.index)
     elif class_name == "Primary" and _s.ref is not None:
         return gather_used_variables(_s.ref)
     return set([])
+
+
+def propagate_locking_variables(_s, _class_variables):
+    """For each Composite/Assignment/Expression, add the variables that have to be locked as a field"""
+    class_name = _s.__class__.__name__
+    if class_name == "Transition":
+        propagate_locking_variables(_s.guard, _class_variables)
+        for _s2 in _s.statements:
+            propagate_locking_variables(_s2, _class_variables)
+    elif class_name in ["Expression", "Assignment"]:
+        _s.lock_variables = {_v for _v in _s.used_variables if _v[0] in _class_variables}
+    elif class_name == "Composite":
+        _s.lock_variables = {_v for _v in _s.guard.used_variables if _v[0] in _class_variables}
+        for _a in _s.assignments:
+            _s.lock_variables |= {_v for _v in _a.used_variables if _v[0] in _class_variables}
 
 
 def transform_statement(_s):
@@ -158,7 +175,7 @@ def transform_transition(_t):
 
 
 # noinspection SpellCheckingInspection
-def transform_state_machine(_sm):
+def transform_state_machine(_sm, _c):
     """Transform the state machine such that it provides all the data required for the code conversion"""
     _sm.initialstate = _sm.initialstate.name
     _sm.states = [_s.name for _s in _sm.states]
@@ -179,6 +196,7 @@ def transform_state_machine(_sm):
         for _t in transitions:
             _sm.used_variables_per_state[_s] |= _t.used_variables
             _sm.used_variables |= _t.used_variables
+            propagate_locking_variables(_t, _c.name_to_variable.keys())
 
 
 def transform_model(_ast):
@@ -189,7 +207,7 @@ def transform_model(_ast):
 
         _c.used_variables = set([])
         for _sm in _c.statemachines:
-            transform_state_machine(_sm)
+            transform_state_machine(_sm, _c)
             _c.used_variables |= _sm.used_variables
 
         # Assign unique ids to every variable for locking purposes.

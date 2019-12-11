@@ -43,7 +43,11 @@ class Java_{{model.name}}Thread extends Thread implements Java_{{parent_class}}_
         {% if model.groupings[s] %}
         {{model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)}}
         {% endif %}
-        {% if model.groupings[s] == none or model.groupings[s][1] | length > 1 %}
+        {% if model.groupings[s] == none %}
+        // There are no transitions to be made, implying a successful self-loop.
+        return true;
+        {% endif %}
+        {% if model.groupings[s][1] | length > 1 %}
         return false;
         {% endif %}
     }
