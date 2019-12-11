@@ -9,7 +9,7 @@ public class {{model.name}} {
 
     {% if add_counter %}
     // Upperbound for transition counter
-    private static final long java_COUNTER_BOUND = 300000000L;
+    private static final long COUNTER_BOUND = 300000000L;
 
     {% endif %}
     // Lock class to handle locks of global variables
@@ -83,9 +83,9 @@ public class {{model.name}} {
 
     // Run application
     public static void main(String[] args) {
-        {{model.name}} java_ap = new {{model.name}}();
-        java_ap.startThreads();
-        java_ap.joinThreads();
+        {{model.name}} ap = new {{model.name}}();
+        ap.startThreads();
+        ap.joinThreads();
     }
 }
 

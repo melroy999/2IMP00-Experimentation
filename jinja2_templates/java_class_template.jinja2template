@@ -3,7 +3,7 @@ private static class {{model.name}} implements SLCO_Class {
     {% if model.statemachines | length > 0 %}
     // The threads
     {% for sm in model.statemachines %}
-    private Java_{{sm.name}}Thread java_T_{{sm.name}};
+    private final {{sm.name}}Thread T_{{sm.name}};
     {% endfor %}
 
     {% endif %}
@@ -20,19 +20,22 @@ private static class {{model.name}} implements SLCO_Class {
     {% endfor %}
     // Constructor for main class
     {{model.name}}({{model.variables | get_variable_list}}) {
+        // Create a lock manager.
+        LockManager lockManager = new LockManager({{model.number_of_class_variables}});
+
         // Instantiate global variables
         {% for v in model.variables %}
         this.{{v.name}} = {{v.name}};
         {% endfor %}
         {% for sm in model.statemachines %}
-        java_T_{{sm.name}} = new {{model.name}}.Java_{{sm.name}}Thread();
+        T_{{sm.name}} = new {{model.name}}.{{sm.name}}Thread(lockManager);
         {% endfor %}
     }
 
     // Start all threads
     public void startThreads() {
         {% for sm in model.statemachines %}
-        java_T_{{sm.name}}.start();
+        T_{{sm.name}}.start();
         {% endfor %}
     }
 
@@ -41,7 +44,7 @@ private static class {{model.name}} implements SLCO_Class {
         while (true) {
             try {
                 {% for sm in model.statemachines %}
-                java_T_{{sm.name}}.join();
+                T_{{sm.name}}.join();
                 {% endfor %}
                 break;
             } catch (InterruptedException e) {

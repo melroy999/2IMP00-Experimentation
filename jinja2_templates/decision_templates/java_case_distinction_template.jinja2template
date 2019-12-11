@@ -1,0 +1,8 @@
+switch({{model.subject}}) {
+    {% for options in model.options %}
+    case {{option.target}}:
+        {{option.decision | get_choice_structure(add_counter, sm) | indent(8, False)}}
+    {% endfor %}
+    default:
+        return false;
+}

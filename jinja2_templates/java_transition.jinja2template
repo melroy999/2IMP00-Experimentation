@@ -1,8 +1,8 @@
 {% for s in model.statements %}
 {% set v = s | to_java_statement(add_counter) %}
 {% if v != "" %}
-{{s | to_java_statement(add_counter)}}
+{{v}}
 {% endif %}
 {% endfor %}
-java_currentState = Java_{{sm.name}}Thread.States.{{model.target}};
+currentState = {{sm.name}}Thread.States.{{model.target}};
 return true;

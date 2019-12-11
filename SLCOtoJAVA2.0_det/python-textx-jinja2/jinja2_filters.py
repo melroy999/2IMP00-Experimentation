@@ -105,8 +105,7 @@ def to_java_statement(model, add_counter):
     if model_class == "Assignment":
         return "%s;" % get_instruction(model)
     elif model_class == "Expression":
-        body_str = "return false"
-        return "if(!(%s)) %s;" % (get_instruction(model), body_str)
+        return "if(!(%s)) return false;" % get_instruction(model)
     elif model_class == "Composite":
         return composite_statement_template.render(
             model=model
@@ -193,6 +192,7 @@ env.filters['get_instruction'] = get_instruction
 env.filters['get_guard_statement'] = get_guard_statement
 env.filters['get_variable_list'] = get_variable_list
 env.filters['get_variable_instantiation_list'] = get_variable_instantiation_list
+
 
 # load the Java templates
 java_model_template = env.get_template('java_model_template.jinja2template')

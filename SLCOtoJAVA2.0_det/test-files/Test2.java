@@ -8,7 +8,7 @@ public class Test2 {
     private final SLCO_Class[] objects;
 
     // Upperbound for transition counter
-    private static final long java_COUNTER_BOUND = 300000000L;
+    private static final long COUNTER_BOUND = 300000000L;
 
     // Lock class to handle locks of global variables
 	private static class LockManager {
@@ -53,84 +53,85 @@ public class Test2 {
     // representation of a class
     private static class P implements SLCO_Class {
         // The threads
-        private Java_SM1Thread java_T_SM1;
+        private final SM1Thread T_SM1;
 
         // Global variables
         private volatile int y;
         private volatile int[] ui;
 
-        interface Java_P_SM1Thread_States {
+        interface P_SM1Thread_States {
             enum States {
                 SMC0, SMC1
             }
         }
 
-        class Java_SM1Thread extends Thread implements Java_P_SM1Thread_States {
-            private Thread java_t;
+        class SM1Thread extends Thread implements P_SM1Thread_States {
+            private Thread t;
 
             // Current state
-            private Java_SM1Thread.States java_currentState;
+            private SM1Thread.States currentState;
 
             // Random number generator to handle non-determinism
-            private Random java_randomGenerator;
+            private final Random random;
 
             // Counter of main while-loop iterations
-            long java_transition_counter;
+            long transition_counter;
 
             // Thread local variables
             private int[] x;
 
+            // The lock manager.
+            private final LockManager lockManager;
+
             // Constructor
-            Java_SM1Thread () {
-                java_randomGenerator = new Random();
-                java_transition_counter = 0;
-                java_currentState = Java_SM1Thread.States.SMC0;
+            SM1Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM1Thread.States.SMC0;
                 x = new int[] {0, 0};
             }
 
             private boolean exec_SMC0() {
-                switch(java_randomGenerator.nextInt(3)) {
+                switch(random.nextInt(2)) {
                     case 0:
-                        if (x[0] <= 3) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                    case 1:
                         if (x[0] == 0) {
-                            switch(java_randomGenerator.nextInt(2)) {
+                            switch(random.nextInt(2)) {
                                 case 0:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
-                                        x[0] = 0;
                                         y = y + 1;
-                                        x[x[1]] = 1;
 
-                                        java_currentState = Java_SM1Thread.States.SMC1;
+                                        currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
                                     return false;
                                 case 1:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
+                                        x[0] = 0;
                                         y = y + 1;
+                                        x[x[1]] = 1;
 
-                                        java_currentState = Java_SM1Thread.States.SMC1;
+                                        currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
                                     return false;
                             }
                         } else if(x[0] == 1) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
+                            currentState = SM1Thread.States.SMC1;
+                            return true;
+                        } else if(x[0] >= 3) {
+                            currentState = SM1Thread.States.SMC1;
                             return true;
                         }
                         return false;
-                    case 2:
+                    case 1:
                         if (x[1] == 2) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
+                            currentState = SM1Thread.States.SMC1;
                             return true;
                         } else if(x[1] == 3) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
+                            currentState = SM1Thread.States.SMC1;
                             return true;
                         }
                         return false;
@@ -146,8 +147,8 @@ public class Test2 {
             // Execute method
             private void exec() {
                 boolean result;
-                while(java_transition_counter < java_COUNTER_BOUND) {
-                    switch(java_currentState) {
+                while(transition_counter < COUNTER_BOUND) {
+                    switch(currentState) {
                         case SMC0:
                             result = exec_SMC0();
                             break;
@@ -160,7 +161,7 @@ public class Test2 {
 
                     // Increment counter
                     if(result) {
-                        java_transition_counter++;
+                        transition_counter++;
                     }
                 }
             }
@@ -172,31 +173,34 @@ public class Test2 {
 
             // Start method
             public void start() {
-                if (java_t == null) {
-                    java_t = new Thread(this, "SM1Thread");
-                    java_t.start();
+                if (t == null) {
+                    t = new Thread(this, "SM1Thread");
+                    t.start();
                 }
             }
         }
 
         // Constructor for main class
         P(int[] ui, int y) {
+            // Create a lock manager.
+            LockManager lockManager = new LockManager(3);
+
             // Instantiate global variables
             this.y = y;
             this.ui = ui;
-            java_T_SM1 = new P.Java_SM1Thread();
+            T_SM1 = new P.SM1Thread(lockManager);
         }
 
         // Start all threads
         public void startThreads() {
-            java_T_SM1.start();
+            T_SM1.start();
         }
 
         // Join all threads
         public void joinThreads() {
             while (true) {
                 try {
-                    java_T_SM1.join();
+                    T_SM1.join();
                     break;
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -229,8 +233,8 @@ public class Test2 {
 
     // Run application
     public static void main(String[] args) {
-        Test2 java_ap = new Test2();
-        java_ap.startThreads();
-        java_ap.joinThreads();
+        Test2 ap = new Test2();
+        ap.startThreads();
+        ap.joinThreads();
     }
 }

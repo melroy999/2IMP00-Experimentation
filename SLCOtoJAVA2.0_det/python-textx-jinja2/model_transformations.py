@@ -219,6 +219,7 @@ def transform_model(_ast):
                 count += variable.type.size
             else:
                 count += 1
+        _c.number_of_class_variables = count
 
     # Ensure that each class has references to its objects.
     for _o in _ast.objects:
