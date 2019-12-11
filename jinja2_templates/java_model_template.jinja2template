@@ -12,6 +12,41 @@ public class {{model.name}} {
     private static final long java_COUNTER_BOUND = 300000000L;
 
     {% endif %}
+    // Lock class to handle locks of global variables
+	private static class LockManager {
+        // The locks
+        private final ReentrantLock[] locks;
+
+		// Constructor
+		LockManager(int noVariables) {
+			locks = new ReentrantLock[noVariables];
+			Arrays.fill(locks, new ReentrantLock(true));
+		}
+
+		// Lock method
+		public void lock(int... lock_ids) {
+		    Arrays.sort(lock_ids);
+		    int last_lock_id = -1;
+			for (int lock_id : lock_ids) {
+			    if(lock_id != last_lock_id) {
+                    locks[lock_id].lock();
+			        last_lock_id = lock_id;
+			    }
+      		}
+		}
+
+		// Unlock method
+		public void unlock(int... lock_ids) {
+		    Arrays.sort(lock_ids);
+		    int last_lock_id = -1;
+			for (int lock_id : lock_ids) {
+			    if(lock_id != last_lock_id) {
+                    locks[lock_id].unlock();
+                }
+      		}
+		}
+	}
+
     interface SLCO_Class {
         void startThreads();
         void joinThreads();

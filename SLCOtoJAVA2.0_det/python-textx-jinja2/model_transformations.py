@@ -1,3 +1,6 @@
+from jinja2_filters import get_instruction
+
+
 class TransitDict(dict):
     """A dictionary that returns the key upon query if the key is not present within the dictionary"""
     def __missing__(self, key):
@@ -82,16 +85,43 @@ def to_simple_ast(ast):
         raise Exception("NYI")
 
 
+def gather_used_variables(_s):
+    class_name = _s.__class__.__name__
+    if class_name in ["Assignment", "Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
+        if _s.right is None:
+            return gather_used_variables(_s.left)
+        else:
+            return gather_used_variables(_s.left).union(gather_used_variables(_s.right))
+    elif class_name == "ExpressionRef":
+        if _s.index is None:
+            return {(_s.ref, None)}
+        else:
+            return {(_s.ref, get_instruction(_s.index))}
+    elif class_name == "VariableRef":
+        if _s.index is None:
+            return {(_s.var.name, None)}
+        else:
+            return {(_s.var.name, get_instruction(_s.index))}
+    elif class_name == "Primary" and _s.ref is not None:
+        return gather_used_variables(_s.ref)
+    return set([])
+
+
 def transform_statement(_s):
     """Transform the statement such that it provides all the data required for the code conversion"""
     class_name = _s.__class__.__name__
-
     if class_name == "Composite":
         _s.guard = transform_statement(_s.guard)
         _s.assignments = [transform_statement(_a) for _a in _s.assignments]
+        _s.used_variables = gather_used_variables(_s.guard)
+        for _a in _s.assignments:
+            _s.used_variables |= _a.used_variables
     elif class_name == "Expression":
         _s.smt = to_simple_ast(_s)
-        return _s
+        _s.used_variables = gather_used_variables(_s)
+    elif class_name == "Assignment":
+        _s.used_variables = gather_used_variables(_s)
+        pass
 
     return _s
 
@@ -108,14 +138,18 @@ def transform_transition(_t):
     elif class_name == "Expression":
         transition_guard = transform_statement(first_statement)
 
+    if transition_guard is not None and class_name == "Expression":
+        _t.statements = _t.statements[1:]
+
     _t.source = _t.source.name
     _t.target = _t.target.name
     _t.priority = _t.priority
     _t.guard = true_expression if transition_guard is None else transition_guard
     _t.statements = [transform_statement(_s) for _s in _t.statements]
 
-    if transition_guard is not None and class_name == "Expression":
-        _t.statements = _t.statements[1:]
+    _t.used_variables = set([])
+    for _s in _t.statements:
+        _t.used_variables |= _s.used_variables
 
     type(_t).__repr__ = lambda self: "%s->%s[%s]" % (
         self.source, self.target, expression_to_string(self.guard.smt)
@@ -139,6 +173,13 @@ def transform_state_machine(_sm):
         ] for _s in _sm.states
     }
 
+    _sm.used_variables_per_state = {_s: set([]) for _s in _sm.states}
+    _sm.used_variables = set([])
+    for _s, transitions in _sm.adjacency_list.items():
+        for _t in transitions:
+            _sm.used_variables_per_state[_s] |= _t.used_variables
+            _sm.used_variables |= _t.used_variables
+
 
 def transform_model(_ast):
     """Transform the model such that it provides all the data required for the code conversion"""
@@ -146,8 +187,10 @@ def transform_model(_ast):
         _c.objects = []
         _c.name_to_variable = {_v.name: _v for _v in _c.variables}
 
+        _c.used_variables = set([])
         for _sm in _c.statemachines:
             transform_state_machine(_sm)
+            _c.used_variables |= _sm.used_variables
 
         # Assign unique ids to every variable for locking purposes.
         count = 0

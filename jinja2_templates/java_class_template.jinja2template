@@ -1,5 +1,5 @@
 // representation of a class
-public static class {{model.name}} implements SLCO_Class {
+private static class {{model.name}} implements SLCO_Class {
     {% if model.statemachines | length > 0 %}
     // The threads
     {% for sm in model.statemachines %}

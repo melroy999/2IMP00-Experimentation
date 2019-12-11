@@ -52,7 +52,7 @@ class Java_{{model.name}}Thread extends Thread implements Java_{{parent_class}}_
     // Execute method
     private void exec() {
         {% if add_counter %}
-        boolean result = false;
+        boolean result;
         {% endif %}
         {% if add_counter %}
         while(java_transition_counter < java_COUNTER_BOUND) {

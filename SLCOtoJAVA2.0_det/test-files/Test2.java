@@ -10,121 +10,54 @@ public class Test2 {
     // Upperbound for transition counter
     private static final long java_COUNTER_BOUND = 300000000L;
 
+    // Lock class to handle locks of global variables
+	private static class LockManager {
+        // The locks
+        private final ReentrantLock[] locks;
+
+		// Constructor
+		LockManager(int noVariables) {
+			locks = new ReentrantLock[noVariables];
+			Arrays.fill(locks, new ReentrantLock(true));
+		}
+
+		// Lock method
+		public void lock(int... lock_ids) {
+		    Arrays.sort(lock_ids);
+		    int last_lock_id = -1;
+			for (int lock_id : lock_ids) {
+			    if(lock_id != last_lock_id) {
+                    locks[lock_id].lock();
+			        last_lock_id = lock_id;
+			    }
+      		}
+		}
+
+		// Unlock method
+		public void unlock(int... lock_ids) {
+		    Arrays.sort(lock_ids);
+		    int last_lock_id = -1;
+			for (int lock_id : lock_ids) {
+			    if(lock_id != last_lock_id) {
+                    locks[lock_id].unlock();
+                }
+      		}
+		}
+	}
+
     interface SLCO_Class {
         void startThreads();
         void joinThreads();
     }
 
     // representation of a class
-    public static class P implements SLCO_Class {
+    private static class P implements SLCO_Class {
         // The threads
-        private Java_SM3Thread java_T_SM3;
         private Java_SM1Thread java_T_SM1;
-        private Java_SM2Thread java_T_SM2;
 
         // Global variables
         private volatile int y;
         private volatile int[] ui;
-
-        interface Java_P_SM3Thread_States {
-            enum States {
-                SMC0, SMC1
-            }
-        }
-
-        class Java_SM3Thread extends Thread implements Java_P_SM3Thread_States {
-            private Thread java_t;
-
-            // Current state
-            private Java_SM3Thread.States java_currentState;
-
-            // Random number generator to handle non-determinism
-            private Random java_randomGenerator;
-
-            // Counter of main while-loop iterations
-            long java_transition_counter;
-
-            // Thread local variables
-            private int x;
-            private boolean b;
-
-            // Constructor
-            Java_SM3Thread () {
-                java_randomGenerator = new Random();
-                java_transition_counter = 0;
-                java_currentState = Java_SM3Thread.States.SMC0;
-                x = 0;
-                b = true;
-            }
-
-            private boolean exec_SMC0() {
-                switch(java_randomGenerator.nextInt(3)) {
-                    case 0:
-                        java_currentState = Java_SM3Thread.States.SMC1;
-                        return true;
-                    case 1:
-                        if (y == 4) {
-                            java_currentState = Java_SM3Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                    case 2:
-                        if (x >= 0 && x < 3) {
-                            x = x + 1;
-                            java_currentState = Java_SM3Thread.States.SMC1;
-                            return true;
-                        } else if(x == 4) {
-                            x = 0;
-                            java_currentState = Java_SM3Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                }
-                return false;
-            }
-
-            private boolean exec_SMC1() {
-                y = y + 1;
-
-                java_currentState = Java_SM3Thread.States.SMC0;
-                return true;
-            }
-
-            // Execute method
-            private void exec() {
-                boolean result = false;
-                while(java_transition_counter < java_COUNTER_BOUND) {
-                    switch(java_currentState) {
-                        case SMC0:
-                            result = exec_SMC0();
-                            break;
-                        case SMC1:
-                            result = exec_SMC1();
-                            break;
-                        default:
-                            return;
-                    }
-
-                    // Increment counter
-                    if(result) {
-                        java_transition_counter++;
-                    }
-                }
-            }
-
-            // Run method
-            public void run() {
-                exec();
-            }
-
-            // Start method
-            public void start() {
-                if (java_t == null) {
-                    java_t = new Thread(this, "SM3Thread");
-                    java_t.start();
-                }
-            }
-        }
 
         interface Java_P_SM1Thread_States {
             enum States {
@@ -173,12 +106,14 @@ public class Test2 {
                         }
                         return false;
                     case 2:
-                        if (x[0] == 0) {
+                        if (x[0] == 1) {
+                            java_currentState = Java_SM1Thread.States.SMC1;
+                            return true;
+                        } else if(x[0] == 0) {
                             switch(java_randomGenerator.nextInt(2)) {
                                 case 0:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
-                                        x[0] = 0;
                                         y = y + 1;
 
                                         java_currentState = Java_SM1Thread.States.SMC1;
@@ -188,16 +123,15 @@ public class Test2 {
                                 case 1:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
+                                        x[0] = 0;
                                         y = y + 1;
+                                        x[1] = 1;
 
                                         java_currentState = Java_SM1Thread.States.SMC1;
                                         return true;
                                     }
                                     return false;
                             }
-                        } else if(x[0] == 1) {
-                            java_currentState = Java_SM1Thread.States.SMC1;
-                            return true;
                         }
                         return false;
                 }
@@ -210,7 +144,7 @@ public class Test2 {
 
             // Execute method
             private void exec() {
-                boolean result = false;
+                boolean result;
                 while(java_transition_counter < java_COUNTER_BOUND) {
                     switch(java_currentState) {
                         case SMC0:
@@ -244,126 +178,24 @@ public class Test2 {
             }
         }
 
-        interface Java_P_SM2Thread_States {
-            enum States {
-                SMC0, SMC1
-            }
-        }
-
-        class Java_SM2Thread extends Thread implements Java_P_SM2Thread_States {
-            private Thread java_t;
-
-            // Current state
-            private Java_SM2Thread.States java_currentState;
-
-            // Random number generator to handle non-determinism
-            private Random java_randomGenerator;
-
-            // Counter of main while-loop iterations
-            long java_transition_counter;
-
-            // Thread local variables
-            private int[] x;
-
-            // Constructor
-            Java_SM2Thread () {
-                java_randomGenerator = new Random();
-                java_transition_counter = 0;
-                java_currentState = Java_SM2Thread.States.SMC0;
-                x = new int[] {0, 0};
-            }
-
-            private boolean exec_SMC0() {
-                switch(java_randomGenerator.nextInt(2)) {
-                    case 0:
-                        if (x[0] <= 3) {
-                            java_currentState = Java_SM2Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                    case 1:
-                        if (x[0] % 4 == 0) {
-                            java_currentState = Java_SM2Thread.States.SMC1;
-                            return true;
-                        } else if(x[0] % 4 == 1) {
-                            java_currentState = Java_SM2Thread.States.SMC1;
-                            return true;
-                        } else if(x[0] % 4 == 2) {
-                            java_currentState = Java_SM2Thread.States.SMC1;
-                            return true;
-                        } else if(x[0] % 4 == 3) {
-                            java_currentState = Java_SM2Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                }
-                return false;
-            }
-
-            private boolean exec_SMC1() {
-                return false;
-            }
-
-            // Execute method
-            private void exec() {
-                boolean result = false;
-                while(java_transition_counter < java_COUNTER_BOUND) {
-                    switch(java_currentState) {
-                        case SMC0:
-                            result = exec_SMC0();
-                            break;
-                        case SMC1:
-                            result = exec_SMC1();
-                            break;
-                        default:
-                            return;
-                    }
-
-                    // Increment counter
-                    if(result) {
-                        java_transition_counter++;
-                    }
-                }
-            }
-
-            // Run method
-            public void run() {
-                exec();
-            }
-
-            // Start method
-            public void start() {
-                if (java_t == null) {
-                    java_t = new Thread(this, "SM2Thread");
-                    java_t.start();
-                }
-            }
-        }
-
         // Constructor for main class
         P(int[] ui, int y) {
             // Instantiate global variables
             this.y = y;
             this.ui = ui;
-            java_T_SM3 = new P.Java_SM3Thread();
             java_T_SM1 = new P.Java_SM1Thread();
-            java_T_SM2 = new P.Java_SM2Thread();
         }
 
         // Start all threads
         public void startThreads() {
-            java_T_SM3.start();
             java_T_SM1.start();
-            java_T_SM2.start();
         }
 
         // Join all threads
         public void joinThreads() {
             while (true) {
                 try {
-                    java_T_SM3.join();
                     java_T_SM1.join();
-                    java_T_SM2.join();
                     break;
                 } catch (InterruptedException e) {
                     e.printStackTrace();
