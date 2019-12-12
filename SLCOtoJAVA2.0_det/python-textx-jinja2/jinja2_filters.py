@@ -114,7 +114,7 @@ def to_java_statement(model, add_counter):
         return ""
 
 
-def get_choice_structure(model, add_counter, sm):
+def render_choice_structure(model, add_counter, sm):
     if model.__class__.__name__ == "Transition":
         return transition_template.render(
             model=model,
@@ -186,7 +186,7 @@ env.filters['render_state_machine'] = render_state_machine
 env.filters['get_java_type'] = get_java_type
 env.filters['get_default_variable_value'] = get_default_variable_value
 env.filters['comma_separated_list'] = comma_separated_list
-env.filters['get_choice_structure'] = get_choice_structure
+env.filters['render_choice_structure'] = render_choice_structure
 env.filters['to_java_statement'] = to_java_statement
 env.filters['get_instruction'] = get_instruction
 env.filters['get_guard_statement'] = get_guard_statement

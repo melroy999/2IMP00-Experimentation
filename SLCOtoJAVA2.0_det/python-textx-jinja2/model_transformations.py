@@ -143,7 +143,7 @@ def transform_statement(_s):
     return _s
 
 
-def transform_transition(_t):
+def transform_transition(_t, _vars):
     """Transform the transition such that it provides all the data required for the code conversion"""
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
     first_statement = _t.statements[0]
@@ -181,8 +181,9 @@ def transform_state_machine(_sm, _c):
     _sm.states = [_s.name for _s in _sm.states]
     _sm.name_to_variable = {_v.name: _v for _v in _sm.variables}
     _sm.transitions.sort(key=lambda x: (x.source.name, x.target.name))
+    _vars = {**_c.name_to_variable, **_sm.name_to_variable}
     for _t in _sm.transitions:
-        transform_transition(_t)
+        transform_transition(_t, _vars)
 
     _sm.adjacency_list = {
         _s: [

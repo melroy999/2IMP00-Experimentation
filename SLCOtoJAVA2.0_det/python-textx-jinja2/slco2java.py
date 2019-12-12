@@ -5,6 +5,7 @@ import os
 
 from enum import Enum
 from jinja2_filters import *
+from jinja2_view_models import construct_decision_block_tree
 from model_transformations import transform_model
 from slcolib import *
 from smt_helper_functions import *
@@ -195,6 +196,7 @@ def add_determinism_annotations(model):
 
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
                     _sm.groupings[_s] = format_decision_group_tree(groupings, trivially_satisfiable)
+                    result = construct_decision_block_tree(groupings)
 
                     print_determinism_report(_s, _sm, transitions, trivially_satisfiable, trivially_unsatisfiable)
 

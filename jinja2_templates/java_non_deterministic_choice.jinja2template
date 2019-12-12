@@ -2,6 +2,6 @@ switch(random.nextInt({{model | length}})) {
 {% for i in range(0, model | length) %}
 {% set choice = model[i] %}
     case {{i}}:
-        {{choice | get_choice_structure(add_counter, sm) | indent(8, False)}}
+        {{choice | render_choice_structure(add_counter, sm) | indent(8, False)}}
 {% endfor %}
 }

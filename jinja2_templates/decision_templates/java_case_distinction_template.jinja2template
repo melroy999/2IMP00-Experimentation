@@ -1,8 +1,12 @@
-switch({{model.subject}}) {
-    {% for options in model.options %}
-    case {{option.target}}:
-        {{option.decision | get_choice_structure(add_counter, sm) | indent(8, False)}}
+switch({{model.subject_expression}}) {
+    {% for choice in model.choice_blocks %}
+    case {{choice.target_expression}}:
+        {{choice.decision | get_choice_structure(add_counter, sm) | indent(8, False)}}
+        return false;
     {% endfor %}
     default:
+        {% if model.default_decision_tree %}
+        {{model.default_decision_tree | get_choice_structure(add_counter, sm) | indent(8, False)}}
+        {% endif %}
         return false;
 }
