@@ -1,21 +1,21 @@
 {% if model.choices | length > 0 %}
-{% if model.acquire_locks %}
-// Request locks.
-lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
-{%- endif %}
 {% if model.release_locks %}
-// Release locks.
+// Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
 lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
+{%- endif %}
+{% if model.acquire_locks %}
+// Acquire locks for [{{model.acquire_locks | to_comma_separated_lock_name_list}}]
+lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
 {%- endif %}
 switch({{model.subject}}) {
     {% for choice in model.choices %}
     case {{choice.target}}:
         {{choice.decision | indent(8, False)}}
     {% endfor %}
+    {% if model.alternative_decisions %}
     default:
-        {% if model.alternative_decisions %}
         {{model.alternative_decisions | indent(8, False)}}
-        {% endif %}
-        return false;
+    {% endif %}
 }
+return false;
 {% endif %}

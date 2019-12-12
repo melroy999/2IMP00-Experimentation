@@ -1,0 +1,7 @@
+{% if model.statements | length > 0 %}
+{% for statement in model.statements %}
+{{statement}}
+{% endfor %}
+{% endif %}
+currentState = {{sm.name}}Thread.States.{{model.target}};
+return true;

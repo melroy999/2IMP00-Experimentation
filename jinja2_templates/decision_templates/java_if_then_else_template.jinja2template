@@ -1,11 +1,11 @@
 {% if model.choices | length > 0 %}
-{% if model.acquire_locks %}
-// Request locks.
-lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
-{%- endif %}
 {% if model.release_locks %}
-// Release locks.
+// Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
 lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
+{%- endif %}
+{% if model.acquire_locks %}
+// Acquire locks for [{{model.acquire_locks | to_comma_separated_lock_name_list}}]
+lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
 {%- endif %}
 if ({{model.choices[0] | get_guard_statement}}) {
     {{model.choices[0] | indent(4, False)}}

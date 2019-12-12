@@ -195,9 +195,10 @@ env.filters['get_variable_instantiation_list'] = get_variable_instantiation_list
 
 
 # load the Java templates
-java_model_template = env.get_template('java_model_template.jinja2template')
-java_class_template = env.get_template('java_class_template.jinja2template')
-java_state_machine_template = env.get_template('java_state_machine_template.jinja2template')
+java_model_template = env.get_template('component_templates/java_model_template.jinja2template')
+java_class_template = env.get_template('component_templates/java_class_template.jinja2template')
+java_state_machine_template = env.get_template('component_templates/java_state_machine_template.jinja2template')
+
 deterministic_choice_template = env.get_template('java_deterministic_choice.jinja2template')
 non_deterministic_choice_template = env.get_template('java_non_deterministic_choice.jinja2template')
 transition_template = env.get_template('java_transition.jinja2template')
