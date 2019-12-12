@@ -170,12 +170,12 @@ def add_determinism_annotations(model):
                 if len(transitions) > 0:
                     # Are there transitions that are trivially unsatisfiable?
                     trivially_unsatisfiable = [
-                        _t for _t in transitions if not do_z3_truth_check(_t.guard.smt, _vars, False)
+                        _t for _t in transitions if _t.is_trivially_unsatisfiable
                     ]
 
                     # Check if any of the transitions are trivially satisfiable.
                     trivially_satisfiable = [
-                        _t for _t in transitions if do_z3_truth_check(_t.guard.smt, _vars)
+                        _t for _t in transitions if _t.is_trivially_satisfiable
                     ]
 
                     # Find the transitions that remain.

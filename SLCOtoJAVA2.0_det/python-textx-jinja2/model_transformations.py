@@ -1,4 +1,5 @@
 from jinja2_filters import get_instruction
+from smt_helper_functions import do_z3_truth_check
 
 
 class TransitDict(dict):
@@ -19,7 +20,9 @@ true_expression = type("Expression", (object,), {
     "left": type("Primary", (object,), {"value": True, "sign": "", "body": None, "ref": None})(),
     "op": "",
     "right": None,
-    "smt": True
+    "smt": True,
+    "is_trivially_satisfiable": True,
+    "is_trivially_unsatisfiable": False,
 })()
 
 
@@ -116,34 +119,45 @@ def propagate_locking_variables(_s, _class_variables):
         propagate_locking_variables(_s.guard, _class_variables)
         for _s2 in _s.statements:
             propagate_locking_variables(_s2, _class_variables)
-    elif class_name in ["Expression", "Assignment"]:
+    elif class_name == "Expression":
+        # If the expression is trivially satisfiable, no locks have to be created.
+        if _s.is_trivially_satisfiable:
+            _s.lock_variables = set([])
+        else:
+            _s.lock_variables = {_v for _v in _s.used_variables if _v[0] in _class_variables}
+    elif class_name == "Assignment":
         _s.lock_variables = {_v for _v in _s.used_variables if _v[0] in _class_variables}
     elif class_name == "Composite":
-        _s.lock_variables = {_v for _v in _s.guard.used_variables if _v[0] in _class_variables}
+        _s.lock_variables = set([])
+        # If the expression is trivially satisfiable, no locks have to be created for the guard.
+        if not _s.guard.is_trivially_satisfiable:
+            _s.lock_variables |= {_v for _v in _s.guard.used_variables if _v[0] in _class_variables}
         for _a in _s.assignments:
             _s.lock_variables |= {_v for _v in _a.used_variables if _v[0] in _class_variables}
 
 
-def transform_statement(_s):
+def transform_statement(_s, _vars):
     """Transform the statement such that it provides all the data required for the code conversion"""
     class_name = _s.__class__.__name__
     if class_name == "Composite":
-        _s.guard = transform_statement(_s.guard)
-        _s.assignments = [transform_statement(_a) for _a in _s.assignments]
+        _s.guard = transform_statement(_s.guard, _vars)
+        _s.assignments = [transform_statement(_a, _vars) for _a in _s.assignments]
         _s.used_variables = gather_used_variables(_s.guard)
         for _a in _s.assignments:
             _s.used_variables |= _a.used_variables
     elif class_name == "Expression":
+        # Check if the expression is trivially satisfiable before assigning the smt string.
         _s.smt = to_simple_ast(_s)
+        _s.is_trivially_satisfiable = do_z3_truth_check(_s.smt, _vars)
+        _s.is_trivially_unsatisfiable = not do_z3_truth_check(_s.smt, _vars, False)
         _s.used_variables = gather_used_variables(_s)
     elif class_name == "Assignment":
         _s.used_variables = gather_used_variables(_s)
-        pass
 
     return _s
 
 
-def transform_transition(_t):
+def transform_transition(_t, _vars):
     """Transform the transition such that it provides all the data required for the code conversion"""
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
     first_statement = _t.statements[0]
@@ -151,9 +165,9 @@ def transform_transition(_t):
 
     transition_guard = None
     if class_name == "Composite":
-        transition_guard = transform_statement(first_statement.guard)
+        transition_guard = transform_statement(first_statement.guard, _vars)
     elif class_name == "Expression":
-        transition_guard = transform_statement(first_statement)
+        transition_guard = transform_statement(first_statement, _vars)
 
     if transition_guard is not None and class_name == "Expression":
         _t.statements = _t.statements[1:]
@@ -162,7 +176,9 @@ def transform_transition(_t):
     _t.target = _t.target.name
     _t.priority = _t.priority
     _t.guard = true_expression if transition_guard is None else transition_guard
-    _t.statements = [transform_statement(_s) for _s in _t.statements]
+    _t.statements = [transform_statement(_s, _vars) for _s in _t.statements]
+    _t.is_trivially_satisfiable = _t.guard.is_trivially_satisfiable
+    _t.is_trivially_unsatisfiable = _t.guard.is_trivially_unsatisfiable
 
     _t.used_variables = set([])
     for _s in _t.statements:
@@ -180,9 +196,11 @@ def transform_state_machine(_sm, _c):
     _sm.initialstate = _sm.initialstate.name
     _sm.states = [_s.name for _s in _sm.states]
     _sm.name_to_variable = {_v.name: _v for _v in _sm.variables}
+
+    _vars = {**_c.name_to_variable, **_sm.name_to_variable}
     _sm.transitions.sort(key=lambda x: (x.source.name, x.target.name))
     for _t in _sm.transitions:
-        transform_transition(_t)
+        transform_transition(_t, _vars)
 
     _sm.adjacency_list = {
         _s: [

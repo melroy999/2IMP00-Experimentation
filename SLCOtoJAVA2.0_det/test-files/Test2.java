@@ -100,7 +100,9 @@ public class Test2 {
                                 case 0:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
+                                        x[0] = 0;
                                         y = y + 1;
+                                        x[x[1]] = 1;
 
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
@@ -109,9 +111,7 @@ public class Test2 {
                                 case 1:
                                     if (x[0] == 0) {
                                         if(!(x[0] == 0)) return false;
-                                        x[0] = 0;
                                         y = y + 1;
-                                        x[x[1]] = 1;
 
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
@@ -140,7 +140,7 @@ public class Test2 {
             }
 
             private boolean exec_SMC1() {
-                // There are no transitions to be made, implying a successful self-loop.
+                currentState = SM1Thread.States.SMC0;
                 return true;
             }
 
