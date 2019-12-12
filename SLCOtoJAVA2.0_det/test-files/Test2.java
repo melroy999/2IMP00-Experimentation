@@ -118,19 +118,19 @@ public class Test2 {
                                     }
                                     return false;
                             }
-                        } else if(x[0] == 1) {
+                        } else if(x[0] >= 3) {
                             currentState = SM1Thread.States.SMC1;
                             return true;
-                        } else if(x[0] >= 3) {
+                        } else if(x[0] == 1) {
                             currentState = SM1Thread.States.SMC1;
                             return true;
                         }
                         return false;
                     case 1:
-                        if (x[1] == 2) {
+                        if (x[1] == 3) {
                             currentState = SM1Thread.States.SMC1;
                             return true;
-                        } else if(x[1] == 3) {
+                        } else if(x[1] == 2) {
                             currentState = SM1Thread.States.SMC1;
                             return true;
                         }

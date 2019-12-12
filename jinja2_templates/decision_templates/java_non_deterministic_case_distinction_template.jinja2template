@@ -1,0 +1,9 @@
+{% if model.choices | length > 0 %}
+switch(random.nextInt({{model.choices | length}})) {
+{% for i in range(0, model.choices | length) %}
+{% set choice = model.choices[i] %}
+    case {{i}}:
+        {{choice | indent(8, False)}}
+{% endfor %}
+}
+{% endif %}
