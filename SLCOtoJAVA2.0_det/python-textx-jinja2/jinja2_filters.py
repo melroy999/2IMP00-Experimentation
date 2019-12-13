@@ -1,5 +1,6 @@
 import jinja2
 
+from jinja2_view_models import get_decision_block_tree
 
 vercors_verif = False
 
@@ -98,46 +99,6 @@ def get_instruction(m):
         return m.var.name + ("[%s]" % get_instruction(m.index) if m.index is not None else "")
 
 
-def to_java_statement(model, add_counter):
-    """Translate the SLCO statement to Java code"""
-    model_class = model.__class__.__name__
-
-    if model_class == "Assignment":
-        return "%s;" % get_instruction(model)
-    elif model_class == "Expression":
-        return "if(!(%s)) return false;" % get_instruction(model)
-    elif model_class == "Composite":
-        return composite_statement_template.render(
-            model=model
-        )
-    else:
-        return ""
-
-
-def get_choice_structure(model, add_counter, sm):
-    if model.__class__.__name__ == "Transition":
-        return transition_template.render(
-            model=model,
-            add_counter=add_counter,
-            sm=sm
-        )
-    else:
-        choice_type, choices = model
-
-        if choice_type.value == 1:
-            return non_deterministic_choice_template.render(
-                model=choices,
-                add_counter=add_counter,
-                sm=sm
-            )
-        else:
-            return deterministic_choice_template.render(
-                model=choices,
-                add_counter=add_counter,
-                sm=sm
-            )
-
-
 def get_guard_statement(model):
     if model.__class__.__name__ == "Transition":
         return get_instruction(model.guard)
@@ -192,18 +153,17 @@ def get_required_locks(model, _sm, _c):
     pass
 
 
-def get_decision_structure(model, _sm, _c, locked_vars=None, requires_guard=True):
-    """Construct the decision code and the execution of the transitions"""
+def construct_decision_code(model, _sm, _c, locked_vars=None, requires_guard=True):
     if locked_vars is None:
         locked_vars = set([])
 
     model_class = model.__class__.__name__
     if model_class == "Transition":
         if len(model.statements) > 0:
-            statements = [get_decision_structure(model.statements[0], _sm, _c, locked_vars, requires_guard=requires_guard)]
+            statements = [construct_decision_code(model.statements[0], _sm, _c, locked_vars, requires_guard=requires_guard)]
         else:
             statements = []
-        statements.extend([get_decision_structure(_s, _sm, _c, locked_vars) for _s in model.statements[1:]])
+        statements.extend([construct_decision_code(_s, _sm, _c, locked_vars) for _s in model.statements[1:]])
         return java_transition_template.render(
             statements=statements,
             target=model.target,
@@ -239,7 +199,7 @@ def get_decision_structure(model, _sm, _c, locked_vars=None, requires_guard=True
         if choice_type.value == 0:
             # Deterministic choice.
             choice_expressions = choices
-            choices = [get_decision_structure(choice, _sm, _c, locked_vars, requires_guard=False) for choice in choices]
+            choices = [construct_decision_code(choice, _sm, _c, locked_vars, requires_guard=False) for choice in choices]
             return java_if_then_else_template.render(
                 acquire_locks=None,
                 release_locks=None,
@@ -249,12 +209,19 @@ def get_decision_structure(model, _sm, _c, locked_vars=None, requires_guard=True
             )
         else:
             # Non-deterministic choice.
-            choices = [get_decision_structure(choice, _sm, _c, locked_vars) for choice in choices]
+            choices = [construct_decision_code(choice, _sm, _c, locked_vars) for choice in choices]
             return java_non_deterministic_case_distinction_template.render(
                 release_locks=None,
                 choices=choices,
                 _c=_c
             )
+
+
+def get_decision_structure(model, _sm, _c):
+    """Construct the decision code and the execution of the transitions"""
+    view_model = get_decision_block_tree(model)
+
+    return ""
 
 
 def to_comma_separated_lock_name_list(model):
@@ -280,8 +247,6 @@ env.filters['render_state_machine'] = render_state_machine
 env.filters['get_java_type'] = get_java_type
 env.filters['get_default_variable_value'] = get_default_variable_value
 env.filters['comma_separated_list'] = comma_separated_list
-env.filters['get_choice_structure'] = get_choice_structure
-env.filters['to_java_statement'] = to_java_statement
 env.filters['get_instruction'] = get_instruction
 env.filters['get_guard_statement'] = get_guard_statement
 env.filters['get_variable_list'] = get_variable_list
@@ -305,8 +270,3 @@ java_case_distinction_template = env.get_template('decision_templates/java_case_
 java_non_deterministic_case_distinction_template = env.get_template(
     'decision_templates/java_non_deterministic_case_distinction_template.jinja2template'
 )
-
-deterministic_choice_template = env.get_template('java_deterministic_choice.jinja2template')
-non_deterministic_choice_template = env.get_template('java_non_deterministic_choice.jinja2template')
-transition_template = env.get_template('java_transition.jinja2template')
-composite_statement_template = env.get_template('java_composite_statement.jinja2template')

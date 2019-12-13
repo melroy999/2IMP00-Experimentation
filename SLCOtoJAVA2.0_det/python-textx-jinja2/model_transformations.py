@@ -151,6 +151,9 @@ def transform_statement(_s, _vars):
         _s.is_trivially_satisfiable = do_z3_truth_check(_s.smt, _vars)
         _s.is_trivially_unsatisfiable = not do_z3_truth_check(_s.smt, _vars, False)
         _s.used_variables = gather_used_variables(_s)
+        type(_s).__repr__ = lambda self: "%s" % (expression_to_string(self.smt))
+        type(_s).__eq__ = lambda self, other: self.smt == other.smt
+        type(_s).__hash__ = lambda self: hash(self.smt.__repr__())
     elif class_name == "Assignment":
         _s.used_variables = gather_used_variables(_s)
 
