@@ -22,7 +22,7 @@ public class Test2 {
 		}
 
 		// Lock method
-		public void lock(int... lock_ids) {
+		void lock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
 		    int last_lock_id = -1;
 			for (int lock_id : lock_ids) {
@@ -34,7 +34,7 @@ public class Test2 {
 		}
 
 		// Unlock method
-		public void unlock(int... lock_ids) {
+		void unlock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
 		    int last_lock_id = -1;
 			for (int lock_id : lock_ids) {
@@ -92,7 +92,6 @@ public class Test2 {
             }
 
             private boolean exec_SMC0() {
-                //model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)
                 switch(random.nextInt(3)) {
                     case 0:
                         lockManager.lock(0); // Acquire [y]
@@ -121,6 +120,7 @@ public class Test2 {
                             switch(random.nextInt(2)) {
                                 case 0:
                                     if (x[0] == 0) {
+                                        x[0] = 0;
                                         y = y + 1;
                                         lockManager.unlock(0); // Release [y]
                                         currentState = SM1Thread.States.SMC1;
@@ -130,7 +130,6 @@ public class Test2 {
                                     return false;
                                 case 1:
                                     if (x[0] == 0) {
-                                        x[0] = 0;
                                         y = y + 1;
                                         lockManager.unlock(0); // Release [y]
                                         currentState = SM1Thread.States.SMC1;
@@ -139,6 +138,10 @@ public class Test2 {
                                     lockManager.lock(0); // Acquire [y]
                                     return false;
                             }
+                        } else if(x[0] >= 3) {
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM1Thread.States.SMC1;
+                            return true;
                         } else if(x[0] == 1) {
                             lockManager.unlock(0); // Release [y]
                             lockManager.lock(0); // Acquire [y]
@@ -146,10 +149,6 @@ public class Test2 {
                                 lockManager.unlock(0); // Release [y]
                                 return false;
                             }
-                            lockManager.unlock(0); // Release [y]
-                            currentState = SM1Thread.States.SMC1;
-                            return true;
-                        } else if(x[0] >= 3) {
                             lockManager.unlock(0); // Release [y]
                             currentState = SM1Thread.States.SMC1;
                             return true;
@@ -161,7 +160,6 @@ public class Test2 {
             }
 
             private boolean exec_SMC1() {
-                //model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)
                 lockManager.lock(0); // Acquire [y]
                 if (x[0] == 0) {
                     x[0] = 0;

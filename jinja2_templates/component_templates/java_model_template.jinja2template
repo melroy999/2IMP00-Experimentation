@@ -24,7 +24,7 @@ public class {{model.name}} {
 		}
 
 		// Lock method
-		public void lock(int... lock_ids) {
+		void lock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
 		    int last_lock_id = -1;
 			for (int lock_id : lock_ids) {
@@ -36,7 +36,7 @@ public class {{model.name}} {
 		}
 
 		// Unlock method
-		public void unlock(int... lock_ids) {
+		void unlock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
 		    int last_lock_id = -1;
 			for (int lock_id : lock_ids) {

@@ -132,27 +132,6 @@ def render_state_machine(model, add_counter, _c):
     )
 
 
-def get_required_locks(model, _sm, _c):
-    """Get all the locks needed in the choice structure"""
-    model_class = model.__class__.__name__
-
-    if model_class == "Transition":
-        # Check if the guard is part of a composite.
-        pass
-    else:
-        # The decision is either deterministic or non-deterministic.
-        choice_type, choices = model
-
-        if choice_type.value == 0:
-            # Deterministic choice.
-            pass
-        else:
-            # Non-deterministic choice.
-            pass
-
-    pass
-
-
 def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
     model_class = model.__class__.__name__
     if model_class == "TransitionBlock":
