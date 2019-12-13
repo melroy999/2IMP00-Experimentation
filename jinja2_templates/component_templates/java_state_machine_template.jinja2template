@@ -46,7 +46,7 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     private boolean exec_{{s}}() {
         {% if model.groupings[s] %}
         //model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)
-        {{model.groupings[s] | get_decision_structure(model, _c) | indent(8, False)}}
+        {{model.groupings[s] | get_decision_structure(model) | indent(8, False)}}
         {% endif %}
         {% if model.groupings[s] == none %}
         // There are no transitions to be made, implying a successful self-loop.

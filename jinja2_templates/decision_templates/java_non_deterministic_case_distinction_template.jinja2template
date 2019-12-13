@@ -1,8 +1,7 @@
 {% if choices | length > 0 %}
 {% if release_locks %}
-// Release locks for [{{release_locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}})
-{%- endif %}
+lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}) // Release [{{release_locks | to_comma_separated_lock_name_list}}]
+{% endif %}
 switch(random.nextInt({{choices | length}})) {
 {% for i in range(0, choices | length) %}
 {% set choice = choices[i] %}

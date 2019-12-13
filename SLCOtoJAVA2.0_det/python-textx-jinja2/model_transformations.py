@@ -199,6 +199,7 @@ def transform_state_machine(_sm, _c):
     _sm.initialstate = _sm.initialstate.name
     _sm.states = [_s.name for _s in _sm.states]
     _sm.name_to_variable = {_v.name: _v for _v in _sm.variables}
+    _sm.parent_class = _c
 
     _vars = {**_c.name_to_variable, **_sm.name_to_variable}
     _sm.transitions.sort(key=lambda x: (x.source.name, x.target.name))

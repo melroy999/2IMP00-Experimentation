@@ -1,12 +1,10 @@
 {% if choices | length > 0 %}
 {% if release_locks %}
-// Release locks for [{{release_locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}})
-{%- endif %}
+lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{release_locks | to_comma_separated_lock_name_list}}]
+{% endif %}
 {% if acquire_locks %}
-// Acquire locks for [{{acquire_locks | to_comma_separated_lock_name_list}}]
-lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}})
-{%- endif %}
+lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{acquire_locks | to_comma_separated_lock_name_list}}]
+{% endif %}
 switch({{subject}}) {
     {% for choice in choices %}
     case {{choice.target}}:

@@ -1,10 +1,10 @@
 {% if locks and add_lock %}
-lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Acquire locks for [{{locks | to_comma_separated_lock_name_list}}]
+lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{locks | to_comma_separated_lock_name_list}}]
 {% endif %}
 {% if guard %}
 if({{guard | get_instruction}}) {
     {% if locks %}
-    lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+    lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{locks | to_comma_separated_lock_name_list}}]
     {% endif %}
     return false;
 }
@@ -13,5 +13,5 @@ if({{guard | get_instruction}}) {
 {{s}};
 {% endfor %}
 {% if locks %}
-lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{locks | to_comma_separated_lock_name_list}}]
 {% endif %}

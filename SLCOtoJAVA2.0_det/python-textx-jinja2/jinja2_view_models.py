@@ -72,13 +72,13 @@ class DeterministicCaseDistinctionBlock:
 class TransitionBlock:
     """A wrapper for a transition leaf in the decision tree"""
     # Which locks have to be acquired and released?
-    acquire_locks = None
     release_locks = None
 
     def __init__(self, _t):
         self.guard_expression = _t.guard
         self.statements = _t.statements
         self.starts_with_composite = len(_t.statements) > 0 and _t.statements[0].__class__.__name__ == "Composite"
+        self.target = _t.target
 
         # If the guard is trivially satisfiable, no lock needs to be instantiated for the guard.
         if self.guard_expression.is_trivially_satisfiable or self.guard_expression.is_trivially_unsatisfiable:
@@ -131,7 +131,7 @@ def propagate_release_locks(model, acquired_locks):
     model_class = model.__class__.__name__
     if model_class == "TransitionBlock":
         # Create a copy of the set, since it is mutable.
-        model.release_locks = acquired_locks.union(model.target_locks)
+        model.release_locks = set(acquired_locks)
     elif model_class == "DeterministicCaseDistinctionBlock":
         pass
     else:
@@ -139,6 +139,7 @@ def propagate_release_locks(model, acquired_locks):
         lock_release_candidates = acquired_locks.difference(model.target_locks)
         if len(lock_release_candidates) > 0:
             model.release_locks = lock_release_candidates
+            acquired_locks -= lock_release_candidates
 
         if model_class == "DeterministicIfThenElseBlock" and model.acquire_locks is not None:
             acquired_locks |= model.acquire_locks
@@ -148,6 +149,9 @@ def propagate_release_locks(model, acquired_locks):
 
         if model_class == "DeterministicIfThenElseBlock" and model.acquire_locks is not None:
             acquired_locks -= model.acquire_locks
+
+        if len(lock_release_candidates) > 0:
+            acquired_locks |= lock_release_candidates
 
 
 def get_decision_block_tree(model):

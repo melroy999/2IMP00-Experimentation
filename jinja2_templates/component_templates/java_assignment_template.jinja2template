@@ -1,7 +1,7 @@
-{% if locks %}
-lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Request locks for [{{locks | to_comma_separated_lock_name_list}}]
+{% if locks and requires_lock %}
+lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Request [{{locks | to_comma_separated_lock_name_list}}]
 {% endif %}
 {{assignment | get_instruction}};
-{% if locks %}
-lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+{% if locks and requires_lock %}
+lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{locks | to_comma_separated_lock_name_list}}]
 {% endif %}
