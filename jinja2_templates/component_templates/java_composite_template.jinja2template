@@ -1,20 +1,17 @@
-{% if model.acquire_locks %}
-// Acquire locks for [{{model.acquire_locks | to_comma_separated_lock_name_list}}]
-lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
-{%- endif %}
-{% if model.guard and not model.skip_guard %}
-if({{model.guard | get_instruction}}) {
-    {% if model.release_locks %}
-    // Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
-    lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
-    {%- endif %}
+{% if locks and add_lock %}
+lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Acquire locks for [{{locks | to_comma_separated_lock_name_list}}]
+{% endif %}
+{% if guard %}
+if({{guard | get_instruction}}) {
+    {% if locks %}
+    lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+    {% endif %}
     return false;
 }
 {% endif %}
-{% for s in model.assignments %}
-{{s | get_instruction}}
+{% for s in assignments %}
+{{s}};
 {% endfor %}
-{% if model.release_locks %}
-// Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
-{%- endif %}
+{% if locks %}
+lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+{% endif %}

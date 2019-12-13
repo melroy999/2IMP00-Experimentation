@@ -1,15 +1,12 @@
 {% if locks %}
-// Request locks for [{{locks | to_comma_separated_lock_name_list}}]
-lockManager.lock({{locks | to_comma_separated_lock_id_list}})
-{%- endif %}
-if(!({{model | get_instruction}})) {
+lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Request locks for [{{locks | to_comma_separated_lock_name_list}}]
+{% endif %}
+if(!({{expression | get_instruction}})) {
     {% if locks %}
-    // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
-    lockManager.unlock({{locks | to_comma_separated_lock_id_list}})
-    {%- endif %}
+    lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+    {% endif %}
     return false;
 }
 {% if locks %}
-// Release locks for [{{locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{locks | to_comma_separated_lock_id_list}})
-{%- endif %}
+lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release locks for [{{locks | to_comma_separated_lock_name_list}}]
+{% endif %}

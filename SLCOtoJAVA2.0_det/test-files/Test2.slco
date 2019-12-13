@@ -27,6 +27,9 @@ model Test2 {
 			from SMC0 to SMC1 {
 			  x[0] >= 3
 			}
+			from SMC0 to SMC1 {
+			  y >= 3; y := 0
+			}
 			from SMC1 to SMC0 {
 			  x[0] >= 3 || x[0] < 3
 			}

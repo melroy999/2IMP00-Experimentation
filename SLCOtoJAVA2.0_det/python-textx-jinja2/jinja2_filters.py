@@ -163,12 +163,106 @@ def render_class(model, add_counter):
     )
 
 
-def render_state_machine(model, add_counter, parent_class):
+def render_state_machine(model, add_counter, _c):
     return java_state_machine_template.render(
         model=model,
         add_counter=add_counter,
-        parent_class=parent_class
+        _c=_c
     )
+
+
+def get_required_locks(model, _sm, _c):
+    """Get all the locks needed in the choice structure"""
+    model_class = model.__class__.__name__
+
+    if model_class == "Transition":
+        # Check if the guard is part of a composite.
+        pass
+    else:
+        # The decision is either deterministic or non-deterministic.
+        choice_type, choices = model
+
+        if choice_type.value == 0:
+            # Deterministic choice.
+            pass
+        else:
+            # Non-deterministic choice.
+            pass
+
+    pass
+
+
+def get_decision_structure(model, _sm, _c, locked_vars=None, requires_guard=True):
+    """Construct the decision code and the execution of the transitions"""
+    if locked_vars is None:
+        locked_vars = set([])
+
+    model_class = model.__class__.__name__
+    if model_class == "Transition":
+        if len(model.statements) > 0:
+            statements = [get_decision_structure(model.statements[0], _sm, _c, locked_vars, requires_guard=requires_guard)]
+        else:
+            statements = []
+        statements.extend([get_decision_structure(_s, _sm, _c, locked_vars) for _s in model.statements[1:]])
+        return java_transition_template.render(
+            statements=statements,
+            target=model.target,
+            state_machine_name=_sm.name,
+            _c=_c
+        )
+    elif model_class == "Composite":
+        guard = get_instruction(model.guard) if not model.guard.is_trivially_satisfiable and requires_guard else None
+        assignments = [get_instruction(_a) for _a in model.assignments]
+        return java_composite_template.render(
+            locks=model.lock_variables,
+            add_lock=False,
+            guard=guard,
+            assignments=assignments,
+            _c=_c
+        )
+    elif model_class == "Assignment":
+        return java_assignment_template.render(
+            locks=model.lock_variables,
+            assignment=model,
+            _c=_c
+        )
+    elif model_class == "Expression":
+        return java_expression_template.render(
+            locks=model.lock_variables,
+            expression=model,
+            _c=_c
+        )
+    else:
+        # The decision is either deterministic or non-deterministic.
+        choice_type, choices = model
+
+        if choice_type.value == 0:
+            # Deterministic choice.
+            choice_expressions = choices
+            choices = [get_decision_structure(choice, _sm, _c, locked_vars, requires_guard=False) for choice in choices]
+            return java_if_then_else_template.render(
+                acquire_locks=None,
+                release_locks=None,
+                choice_expressions=choice_expressions,
+                choices=choices,
+                _c=_c
+            )
+        else:
+            # Non-deterministic choice.
+            choices = [get_decision_structure(choice, _sm, _c, locked_vars) for choice in choices]
+            return java_non_deterministic_case_distinction_template.render(
+                release_locks=None,
+                choices=choices,
+                _c=_c
+            )
+
+
+def to_comma_separated_lock_name_list(model):
+    return ", ".join([v[0] + ("" if v[1] is None else "[%s]" % v[1]) for v in model])
+
+
+def to_comma_separated_lock_id_list(model, _c):
+    return ", ".join([str(_c.name_to_variable[v[0]].lock_id) + ("" if v[1] is None else v[1]) for v in model])
 
 
 # Initialize the template engine.
@@ -191,13 +285,26 @@ env.filters['to_java_statement'] = to_java_statement
 env.filters['get_instruction'] = get_instruction
 env.filters['get_guard_statement'] = get_guard_statement
 env.filters['get_variable_list'] = get_variable_list
+env.filters['get_decision_structure'] = get_decision_structure
 env.filters['get_variable_instantiation_list'] = get_variable_instantiation_list
+env.filters['to_comma_separated_lock_name_list'] = to_comma_separated_lock_name_list
+env.filters['to_comma_separated_lock_id_list'] = to_comma_separated_lock_id_list
 
 
 # load the Java templates
 java_model_template = env.get_template('component_templates/java_model_template.jinja2template')
 java_class_template = env.get_template('component_templates/java_class_template.jinja2template')
 java_state_machine_template = env.get_template('component_templates/java_state_machine_template.jinja2template')
+java_assignment_template = env.get_template('component_templates/java_assignment_template.jinja2template')
+java_expression_template = env.get_template('component_templates/java_expression_template.jinja2template')
+java_composite_template = env.get_template('component_templates/java_composite_template.jinja2template')
+java_transition_template = env.get_template('component_templates/java_transition_template.jinja2template')
+
+java_if_then_else_template = env.get_template('decision_templates/java_if_then_else_template.jinja2template')
+java_case_distinction_template = env.get_template('decision_templates/java_case_distinction_template.jinja2template')
+java_non_deterministic_case_distinction_template = env.get_template(
+    'decision_templates/java_non_deterministic_case_distinction_template.jinja2template'
+)
 
 deterministic_choice_template = env.get_template('java_deterministic_choice.jinja2template')
 non_deterministic_choice_template = env.get_template('java_non_deterministic_choice.jinja2template')

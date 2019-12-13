@@ -1,17 +1,18 @@
-{% if model.choices | length > 0 %}
-{% if model.release_locks %}
-// Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
+{% if choices | length > 0 %}
+{% if release_locks %}
+// Release locks for [{{release_locks | to_comma_separated_lock_name_list}}]
+lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}})
 {%- endif %}
-{% if model.acquire_locks %}
-// Acquire locks for [{{model.acquire_locks | to_comma_separated_lock_name_list}}]
-lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
+{% if acquire_locks %}
+// Acquire locks for [{{acquire_locks | to_comma_separated_lock_name_list}}]
+lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}})
 {%- endif %}
-if ({{model.choices[0] | get_guard_statement}}) {
-    {{model.choices[0] | indent(4, False)}}
-}{% for i in range(1, model | length) %} else if({{model.choices[i] | get_guard_statement}}) {
-    {{model.choices[i] | indent(4, False)}}
+if ({{choice_expressions[0] | get_guard_statement}}) {
+    {{choices[0] | indent(4, False)}}
+}{% for i in range(1, choices | length) %} else if({{choice_expressions[i] | get_guard_statement}}) {
+    {{choices[i] | indent(4, False)}}
 }
 {%- endfor %}
+
 return false;
 {%- endif %}

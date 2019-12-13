@@ -1,20 +1,20 @@
-{% if model.choices | length > 0 %}
-{% if model.release_locks %}
-// Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
+{% if choices | length > 0 %}
+{% if release_locks %}
+// Release locks for [{{release_locks | to_comma_separated_lock_name_list}}]
+lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}})
 {%- endif %}
-{% if model.acquire_locks %}
-// Acquire locks for [{{model.acquire_locks | to_comma_separated_lock_name_list}}]
-lockManager.lock({{model.acquire_locks | to_comma_separated_lock_id_list}})
+{% if acquire_locks %}
+// Acquire locks for [{{acquire_locks | to_comma_separated_lock_name_list}}]
+lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}})
 {%- endif %}
-switch({{model.subject}}) {
-    {% for choice in model.choices %}
+switch({{subject}}) {
+    {% for choice in choices %}
     case {{choice.target}}:
         {{choice.decision | indent(8, False)}}
     {% endfor %}
-    {% if model.alternative_decisions %}
+    {% if alternative_decisions %}
     default:
-        {{model.alternative_decisions | indent(8, False)}}
+        {{alternative_decisions | indent(8, False)}}
     {% endif %}
 }
 return false;

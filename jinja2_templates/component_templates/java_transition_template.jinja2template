@@ -1,7 +1,5 @@
-{% if model.statements | length > 0 %}
-{% for statement in model.statements %}
-{{statement}}
-{% endfor %}
+{% if statements | length > 0 %}
+{% for statement in statements %}{{statement}}{% endfor %}
 {% endif %}
-currentState = {{sm.name}}Thread.States.{{model.target}};
+currentState = {{state_machine_name}}Thread.States.{{target}};
 return true;

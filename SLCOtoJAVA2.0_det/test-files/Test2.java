@@ -93,26 +93,34 @@ public class Test2 {
             }
 
             private boolean exec_SMC0() {
-                switch(random.nextInt(2)) {
+                //model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)
+                switch(random.nextInt(3)) {
                     case 0:
+                        if (y >= 3) {
+                            lockManager.lock(2); // Request locks for [y]
+                            y = 0;
+                            lockManager.unlock(2); // Release locks for [y]
+                            currentState = SM1Thread.States.SMC1;
+                            return true;
+                        }
+                        return false;
+                    case 1:
                         if (x[0] == 0) {
                             switch(random.nextInt(2)) {
                                 case 0:
                                     if (x[0] == 0) {
-                                        if(!(x[0] == 0)) return false;
-                                        x[0] = 0;
                                         y = y + 1;
-                                        x[x[1]] = 1;
-
+                                        lockManager.unlock(2); // Release locks for [y]
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
                                     return false;
                                 case 1:
                                     if (x[0] == 0) {
-                                        if(!(x[0] == 0)) return false;
+                                        x[0] = 0;
                                         y = y + 1;
-
+                                        x[x[1]] = 1;
+                                        lockManager.unlock(2); // Release locks for [y]
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
@@ -126,7 +134,7 @@ public class Test2 {
                             return true;
                         }
                         return false;
-                    case 1:
+                    case 2:
                         if (x[1] == 3) {
                             currentState = SM1Thread.States.SMC1;
                             return true;
@@ -140,6 +148,7 @@ public class Test2 {
             }
 
             private boolean exec_SMC1() {
+                //model.groupings[s] | get_choice_structure(add_counter, model) | indent(8, False)
                 currentState = SM1Thread.States.SMC0;
                 return true;
             }

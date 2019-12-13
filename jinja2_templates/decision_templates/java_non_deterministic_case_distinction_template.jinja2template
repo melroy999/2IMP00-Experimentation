@@ -1,13 +1,13 @@
-{% if model.choices | length > 0 %}
-{% if model.release_locks %}
-// Release locks for [{{model.release_locks | to_comma_separated_lock_name_list}}]
-lockManager.unlock({{model.release_locks | to_comma_separated_lock_id_list}})
+{% if choices | length > 0 %}
+{% if release_locks %}
+// Release locks for [{{release_locks | to_comma_separated_lock_name_list}}]
+lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}})
 {%- endif %}
-switch(random.nextInt({{model.choices | length}})) {
-{% for i in range(0, model.choices | length) %}
-{% set choice = model.choices[i] %}
+switch(random.nextInt({{choices | length}})) {
+{% for i in range(0, choices | length) %}
+{% set choice = choices[i] %}
     case {{i}}:
         {{choice | indent(8, False)}}
 {% endfor %}
 }
-{% endif %}
+{%- endif %}
