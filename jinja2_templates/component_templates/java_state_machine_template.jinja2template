@@ -16,9 +16,9 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
 
     // Counter of main while-loop iterations
     long transition_counter;
+
     {% endif %}
     {% if model.variables | length > 0 %}
-
     // Thread local variables
     {% for v in model.variables %}
     private {{v.type | get_java_type(False)}} {{v.name}};

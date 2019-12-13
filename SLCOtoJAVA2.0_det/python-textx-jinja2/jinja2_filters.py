@@ -212,7 +212,8 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             release_locks=model.release_locks,
             choice_expressions=choice_expressions,
             choices=choices,
-            _c=_sm.parent_class
+            _c=_sm.parent_class,
+            target_locks=model.target_locks
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
         return ""
