@@ -179,6 +179,7 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
         return java_non_deterministic_case_distinction_template.render(
             release_locks=model.release_locks,
             choices=choices,
+            target_locks=model.target_locks,
             _c=_sm.parent_class
         )
     elif model_class == "DeterministicIfThenElseBlock":

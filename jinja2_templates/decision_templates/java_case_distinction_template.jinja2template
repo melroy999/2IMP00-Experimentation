@@ -10,13 +10,14 @@ switch({{subject_expression}}) {
     case {{choice[0]}}:
         {{choice[1] | indent(8, False)}}
     {% endfor %}
+    default:
+        {% if default_decision_tree %}
+        {{default_decision_tree | indent(8, False)}}
+        {% else %}
+        {% if target_locks %}
+        lockManager.unlock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{target_locks | to_comma_separated_lock_name_list}}]
+        {% endif %}
+        return false;
+        {% endif %}
+        {% endif %}
 }
-{% if default_decision_tree %}
-{{default_decision_tree}}
-{% else %}
-{% if target_locks %}
-lockManager.unlock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{target_locks | to_comma_separated_lock_name_list}}]
-{% endif %}
-return false;
-{% endif %}
-{% endif %}

@@ -51,9 +51,6 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
         // There are no transitions to be made, implying a successful self-loop.
         return true;
         {% endif %}
-        {% if model.groupings[s][1] | length > 1 %}
-        return false;
-        {% endif %}
     }
 
     {% endfor %}

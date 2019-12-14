@@ -25,7 +25,7 @@ model Test2 {
 			  y >= 3; y := 0
 			}
 			from SMC1 to SMC0 {
-			  [x[0] = 0; x[0] := 0; y := y + 1]
+                True
 			}
 	    }
 	    SM2 {
@@ -45,7 +45,7 @@ model Test2 {
 			  y >= 5
 			}
 			from SMC1 to SMC0 {
-			  x[0] = 0
+                True
 			}
 	    }
 	}
