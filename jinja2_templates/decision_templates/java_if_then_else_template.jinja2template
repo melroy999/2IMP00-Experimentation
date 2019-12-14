@@ -12,7 +12,7 @@ if ({{choice_expressions[0]}}) {
 }{% endfor %}
 
 {% if target_locks %}
-lockManager.lock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{target_locks | to_comma_separated_lock_name_list}}]
+lockManager.unlock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{target_locks | to_comma_separated_lock_name_list}}]
 {% endif %}
 return false;
 {%- endif %}

@@ -154,8 +154,6 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
     elif model_class == "Composite":
         guard = get_instruction(model.guard) if not model.guard.is_trivially_satisfiable and include_guard else None
         assignments = [get_instruction(_a) for _a in model.assignments]
-
-        # TODO finish the composite.
         return java_composite_template.render(
             guard=guard,
             assignments=assignments,
@@ -189,13 +187,24 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
         return java_if_then_else_template.render(
             acquire_locks=model.acquire_locks,
             release_locks=model.release_locks,
+            target_locks=model.target_locks,
             choice_expressions=choice_expressions,
             choices=choices,
-            _c=_sm.parent_class,
-            target_locks=model.target_locks
+            _c=_sm.parent_class
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
-        return ""
+        choices = [(target, construct_decision_code(choice, _sm)) for (target, choice) in model.choice_blocks]
+        subject_expression = get_instruction(model.subject_expression)
+        default_decision_tree = construct_decision_code(model.default_decision_tree, _sm)
+        return java_case_distinction_template.render(
+            acquire_locks=model.acquire_locks,
+            release_locks=model.release_locks,
+            target_locks=model.target_locks,
+            subject_expression=subject_expression,
+            default_decision_tree=default_decision_tree,
+            choices=choices,
+            _c=_sm.parent_class
+        )
 
 
 def get_decision_structure(model, _sm):

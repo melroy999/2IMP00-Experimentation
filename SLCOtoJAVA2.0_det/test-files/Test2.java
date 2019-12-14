@@ -54,6 +54,7 @@ public class Test2 {
     private static class P implements SLCO_Class {
         // The threads
         private final SM1Thread T_SM1;
+        private final SM2Thread T_SM2;
 
         // Global variables
         private volatile int y;
@@ -92,7 +93,7 @@ public class Test2 {
             }
 
             private boolean exec_SMC0() {
-                switch(random.nextInt(3)) {
+                switch(random.nextInt(2)) {
                     case 0:
                         lockManager.lock(0); // Acquire [y]
                         if (y >= 3) {
@@ -103,22 +104,22 @@ public class Test2 {
                             currentState = SM1Thread.States.SMC1;
                             return true;
                         }
-                        lockManager.lock(0); // Acquire [y]
+                        lockManager.unlock(0); // Release [y]
                         return false;
                     case 1:
-                        if (x[1] == 2) {
-                            currentState = SM1Thread.States.SMC1;
-                            return true;
-                        } else if(x[1] == 3) {
-                            currentState = SM1Thread.States.SMC1;
-                            return true;
-                        }
-                        return false;
-                    case 2:
                         lockManager.lock(0); // Acquire [y]
                         if (x[0] == 0) {
                             switch(random.nextInt(2)) {
                                 case 0:
+                                    if (x[0] == 0) {
+                                        y = y + 1;
+                                        lockManager.unlock(0); // Release [y]
+                                        currentState = SM1Thread.States.SMC1;
+                                        return true;
+                                    }
+                                    lockManager.unlock(0); // Release [y]
+                                    return false;
+                                case 1:
                                     if (x[0] == 0) {
                                         x[0] = 0;
                                         y = y + 1;
@@ -126,22 +127,9 @@ public class Test2 {
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
-                                    lockManager.lock(0); // Acquire [y]
-                                    return false;
-                                case 1:
-                                    if (x[0] == 0) {
-                                        y = y + 1;
-                                        lockManager.unlock(0); // Release [y]
-                                        currentState = SM1Thread.States.SMC1;
-                                        return true;
-                                    }
-                                    lockManager.lock(0); // Acquire [y]
+                                    lockManager.unlock(0); // Release [y]
                                     return false;
                             }
-                        } else if(x[0] >= 3) {
-                            lockManager.unlock(0); // Release [y]
-                            currentState = SM1Thread.States.SMC1;
-                            return true;
                         } else if(x[0] == 1) {
                             lockManager.unlock(0); // Release [y]
                             lockManager.lock(0); // Acquire [y]
@@ -152,8 +140,12 @@ public class Test2 {
                             lockManager.unlock(0); // Release [y]
                             currentState = SM1Thread.States.SMC1;
                             return true;
+                        } else if(x[0] >= 3) {
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM1Thread.States.SMC1;
+                            return true;
                         }
-                        lockManager.lock(0); // Acquire [y]
+                        lockManager.unlock(0); // Release [y]
                         return false;
                 }
                 return false;
@@ -168,7 +160,7 @@ public class Test2 {
                     currentState = SM1Thread.States.SMC0;
                     return true;
                 }
-                lockManager.lock(0); // Acquire [y]
+                lockManager.unlock(0); // Release [y]
                 return false;
             }
 
@@ -208,6 +200,110 @@ public class Test2 {
             }
         }
 
+        interface P_SM2Thread_States {
+            enum States {
+                SMC0, SMC1
+            }
+        }
+
+        class SM2Thread extends Thread implements P_SM2Thread_States {
+            private Thread t;
+
+            // Current state
+            private SM2Thread.States currentState;
+
+            // Random number generator to handle non-determinism
+            private final Random random;
+
+            // Counter of main while-loop iterations
+            long transition_counter;
+
+            // Thread local variables
+            private int[] x;
+
+            // The lock manager.
+            private final LockManager lockManager;
+
+            // Constructor
+            SM2Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM2Thread.States.SMC0;
+                x = new int[] {0, 0};
+            }
+
+            private boolean exec_SMC0() {
+                lockManager.lock(0); // Acquire [y]
+                switch(y) {
+                    case 2:
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM2Thread.States.SMC1;
+                        return true;
+                    case 3:
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM2Thread.States.SMC1;
+                        return true;
+                    case 4:
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM2Thread.States.SMC1;
+                        return true;
+                }
+                if (y >= 5) {
+                    lockManager.unlock(0); // Release [y]
+                    currentState = SM2Thread.States.SMC1;
+                    return true;
+                }
+                lockManager.unlock(0); // Release [y]
+                return false;
+
+                return false;
+            }
+
+            private boolean exec_SMC1() {
+                if (x[0] == 0) {
+                    currentState = SM2Thread.States.SMC0;
+                    return true;
+                }
+                return false;
+            }
+
+            // Execute method
+            private void exec() {
+                boolean result;
+                while(transition_counter < COUNTER_BOUND) {
+                    switch(currentState) {
+                        case SMC0:
+                            result = exec_SMC0();
+                            break;
+                        case SMC1:
+                            result = exec_SMC1();
+                            break;
+                        default:
+                            return;
+                    }
+
+                    // Increment counter
+                    if(result) {
+                        transition_counter++;
+                    }
+                }
+            }
+
+            // Run method
+            public void run() {
+                exec();
+            }
+
+            // Start method
+            public void start() {
+                if (t == null) {
+                    t = new Thread(this, "SM2Thread");
+                    t.start();
+                }
+            }
+        }
+
         // Constructor for main class
         P(int y) {
             // Create a lock manager.
@@ -216,11 +312,13 @@ public class Test2 {
             // Instantiate global variables
             this.y = y;
             T_SM1 = new P.SM1Thread(lockManager);
+            T_SM2 = new P.SM2Thread(lockManager);
         }
 
         // Start all threads
         public void startThreads() {
             T_SM1.start();
+            T_SM2.start();
         }
 
         // Join all threads
@@ -228,6 +326,7 @@ public class Test2 {
             while (true) {
                 try {
                     T_SM1.join();
+                    T_SM2.join();
                     break;
                 } catch (InterruptedException e) {
                     e.printStackTrace();

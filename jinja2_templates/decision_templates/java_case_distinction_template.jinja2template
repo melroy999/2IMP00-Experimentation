@@ -5,18 +5,18 @@ lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // 
 {% if acquire_locks %}
 lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{acquire_locks | to_comma_separated_lock_name_list}}]
 {% endif %}
-switch({{subject}}) {
+switch({{subject_expression}}) {
     {% for choice in choices %}
-    case {{choice.target}}:
-        {{choice.decision | indent(8, False)}}
+    case {{choice[0]}}:
+        {{choice[1] | indent(8, False)}}
     {% endfor %}
-    {% if alternative_decisions %}
-    default:
-        {{alternative_decisions | indent(8, False)}}
-    {% endif %}
 }
+{% if default_decision_tree %}
+{{default_decision_tree}}
+{% else %}
 {% if target_locks %}
-lockManager.lock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{target_locks | to_comma_separated_lock_name_list}}]
+lockManager.unlock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{target_locks | to_comma_separated_lock_name_list}}]
 {% endif %}
 return false;
+{% endif %}
 {% endif %}
