@@ -96,22 +96,25 @@ public class Test2 {
                 switch(random.nextInt(2)) {
                     case 0:
                         lockManager.lock(0); // Acquire [y]
-                        if (y >= 3) {
-                            lockManager.unlock(0); // Release [y]
-                            lockManager.lock(0); // Request [y]
-                            y = 0;
+                        if (x[0] >= 3) {
                             lockManager.unlock(0); // Release [y]
                             currentState = SM1Thread.States.SMC1;
                             return true;
-                        }
-                        lockManager.unlock(0); // Release [y]
-                        return false;
-                    case 1:
-                        lockManager.lock(0); // Acquire [y]
-                        if (x[0] == 0) {
+                        } else if(x[0] == 1) {
+                            lockManager.unlock(0); // Release [y]
+                            lockManager.lock(0); // Acquire [y]
+                            if(!(y > 0)) {
+                                lockManager.unlock(0); // Release [y]
+                                return false;
+                            }
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM1Thread.States.SMC1;
+                            return true;
+                        } else if(x[0] == 0) {
                             switch(random.nextInt(2)) {
                                 case 0:
                                     if (x[0] == 0) {
+                                        x[0] = 0;
                                         y = y + 1;
                                         lockManager.unlock(0); // Release [y]
                                         currentState = SM1Thread.States.SMC1;
@@ -121,7 +124,6 @@ public class Test2 {
                                     return false;
                                 case 1:
                                     if (x[0] == 0) {
-                                        x[0] = 0;
                                         y = y + 1;
                                         lockManager.unlock(0); // Release [y]
                                         currentState = SM1Thread.States.SMC1;
@@ -134,17 +136,15 @@ public class Test2 {
                                         "The default statement in a non-deterministic block should be unreachable!"
                                     );
                             }
-                        } else if(x[0] == 1) {
+                        }
+                        lockManager.unlock(0); // Release [y]
+                        return false;
+                    case 1:
+                        lockManager.lock(0); // Acquire [y]
+                        if (y >= 3) {
                             lockManager.unlock(0); // Release [y]
-                            lockManager.lock(0); // Acquire [y]
-                            if(!(y > 0)) {
-                                lockManager.unlock(0); // Release [y]
-                                return false;
-                            }
-                            lockManager.unlock(0); // Release [y]
-                            currentState = SM1Thread.States.SMC1;
-                            return true;
-                        } else if(x[0] >= 3) {
+                            lockManager.lock(0); // Request [y]
+                            y = 0;
                             lockManager.unlock(0); // Release [y]
                             currentState = SM1Thread.States.SMC1;
                             return true;
@@ -236,13 +236,7 @@ public class Test2 {
                 lockManager.lock(0); // Acquire [y]
                 switch(y) {
                     case 2:
-                        lockManager.unlock(0); // Release [y]
-                        currentState = SM2Thread.States.SMC1;
-                        return true;
                     case 3:
-                        lockManager.unlock(0); // Release [y]
-                        currentState = SM2Thread.States.SMC1;
-                        return true;
                     case 4:
                         lockManager.unlock(0); // Release [y]
                         currentState = SM2Thread.States.SMC1;

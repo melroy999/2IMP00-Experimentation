@@ -175,7 +175,16 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             _c=_sm.parent_class
         )
     elif model_class == "NonDeterministicBlock":
+        # Several of the choices may have the same conversion string. Filter these out and merge.
         choices = [construct_decision_code(choice, _sm) for choice in model.choice_blocks]
+        choices.sort()
+
+        for i in range(0, len(choices) - 1):
+            # Check if the next execution code is equivalent to the current one.
+            # If so, set the current execution code to empty string, to avoid duplicates.
+            if choices[i] == choices[i + 1]:
+                choices[i] = ""
+
         return java_non_deterministic_case_distinction_template.render(
             release_locks=model.release_locks,
             choices=choices,
@@ -183,18 +192,30 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             _c=_sm.parent_class
         )
     elif model_class == "DeterministicIfThenElseBlock":
-        choices = [construct_decision_code(choice, _sm) for choice in model.choice_blocks]
-        choice_expressions = [get_guard_statement(choice) for choice in model.choice_blocks]
+        # Order the choices such that the generated code is always the same.
+        choices = [
+            (construct_decision_code(choice, _sm), get_guard_statement(choice)) for choice in model.choice_blocks
+        ]
+        choices.sort(key=lambda v: v[0])
+
         return java_if_then_else_template.render(
             acquire_locks=model.acquire_locks,
             release_locks=model.release_locks,
             target_locks=model.target_locks,
-            choice_expressions=choice_expressions,
             choices=choices,
             _c=_sm.parent_class
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
+        # Several of the choices may have the same conversion string. Filter these out and merge.
         choices = [(target, construct_decision_code(choice, _sm)) for (target, choice) in model.choice_blocks]
+        choices.sort(key=lambda v: v[1])
+
+        for i in range(0, len(choices) - 1):
+            # Check if the next execution code is equivalent to the current one.
+            # If so, set the current execution code to empty string, to avoid duplicates.
+            if choices[i][1] == choices[i + 1][1]:
+                choices[i] = (choices[i][0], "")
+
         subject_expression = get_instruction(model.subject_expression)
         default_decision_tree = construct_decision_code(model.default_decision_tree, _sm)
         return java_case_distinction_template.render(
