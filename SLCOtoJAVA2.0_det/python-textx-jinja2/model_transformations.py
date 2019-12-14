@@ -234,7 +234,9 @@ def transform_model(_ast):
 
         # Assign unique ids to every variable for locking purposes.
         count = 0
-        for key in sorted(_c.name_to_variable.keys()):
+
+        # We want simple variables to have a lower id, such that they can safely be used in array indexing.
+        for key, variable in sorted(_c.name_to_variable.items(), key=lambda v: (v[1].type.size, v[0])):
             variable = _c.name_to_variable[key]
             variable.lock_id = count
             if variable.type.size > 1:

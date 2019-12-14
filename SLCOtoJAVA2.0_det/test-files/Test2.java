@@ -58,6 +58,7 @@ public class Test2 {
 
         // Global variables
         private volatile int y;
+        private volatile int[] x;
 
         interface P_SM1Thread_States {
             enum States {
@@ -77,9 +78,6 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
-            // Thread local variables
-            private int[] x;
-
             // The lock manager.
             private final LockManager lockManager;
 
@@ -89,19 +87,30 @@ public class Test2 {
                 this.lockManager = lockManager;
                 transition_counter = 0;
                 currentState = SM1Thread.States.SMC0;
-                x = new int[] {0, 0};
             }
 
             private boolean exec_SMC0() {
                 switch(random.nextInt(2)) {
                     case 0:
                         lockManager.lock(0); // Acquire [y]
-                        if (x[0] >= 3) {
+                        if (y >= 3) {
+                            lockManager.unlock(0); // Release [y]
+                            lockManager.lock(0); // Request [y]
+                            y = 0;
                             lockManager.unlock(0); // Release [y]
                             currentState = SM1Thread.States.SMC1;
                             return true;
+                        }
+                        lockManager.unlock(0); // Release [y]
+                        return false;
+                    case 1:
+                        lockManager.lock(1, 0); // Acquire [x[0], y]
+                        if (x[0] >= 3) {
+                            lockManager.unlock(1, 0); // Release [x[0], y]
+                            currentState = SM1Thread.States.SMC1;
+                            return true;
                         } else if(x[0] == 1) {
-                            lockManager.unlock(0); // Release [y]
+                            lockManager.unlock(1, 0); // Release [x[0], y]
                             lockManager.lock(0); // Acquire [y]
                             if(!(y > 0)) {
                                 lockManager.unlock(0); // Release [y]
@@ -116,20 +125,20 @@ public class Test2 {
                                     if (x[0] == 0) {
                                         x[0] = 0;
                                         y = y + 1;
-                                        lockManager.unlock(0); // Release [y]
+                                        lockManager.unlock(1, 0); // Release [x[0], y]
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
-                                    lockManager.unlock(0); // Release [y]
+                                    lockManager.unlock(1, 0); // Release [x[0], y]
                                     return false;
                                 case 1:
                                     if (x[0] == 0) {
                                         y = y + 1;
-                                        lockManager.unlock(0); // Release [y]
+                                        lockManager.unlock(1, 0); // Release [x[0], y]
                                         currentState = SM1Thread.States.SMC1;
                                         return true;
                                     }
-                                    lockManager.unlock(0); // Release [y]
+                                    lockManager.unlock(1, 0); // Release [x[0], y]
                                     return false;
                                 default:
                                     throw new RuntimeException(
@@ -137,19 +146,7 @@ public class Test2 {
                                     );
                             }
                         }
-                        lockManager.unlock(0); // Release [y]
-                        return false;
-                    case 1:
-                        lockManager.lock(0); // Acquire [y]
-                        if (y >= 3) {
-                            lockManager.unlock(0); // Release [y]
-                            lockManager.lock(0); // Request [y]
-                            y = 0;
-                            lockManager.unlock(0); // Release [y]
-                            currentState = SM1Thread.States.SMC1;
-                            return true;
-                        }
-                        lockManager.unlock(0); // Release [y]
+                        lockManager.unlock(1, 0); // Release [x[0], y]
                         return false;
                     default:
                         throw new RuntimeException(
@@ -217,9 +214,6 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
-            // Thread local variables
-            private int[] x;
-
             // The lock manager.
             private final LockManager lockManager;
 
@@ -229,7 +223,6 @@ public class Test2 {
                 this.lockManager = lockManager;
                 transition_counter = 0;
                 currentState = SM2Thread.States.SMC0;
-                x = new int[] {0, 0};
             }
 
             private boolean exec_SMC0() {
@@ -294,12 +287,13 @@ public class Test2 {
         }
 
         // Constructor for main class
-        P(int y) {
+        P(int[] x, int y) {
             // Create a lock manager.
-            LockManager lockManager = new LockManager(1);
+            LockManager lockManager = new LockManager(3);
 
             // Instantiate global variables
             this.y = y;
+            this.x = x;
             T_SM1 = new P.SM1Thread(lockManager);
             T_SM2 = new P.SM2Thread(lockManager);
         }
@@ -327,7 +321,7 @@ public class Test2 {
     Test2() {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
-            new P(1),
+            new P(new int[] {0, 0}, 1),
         };
     }
 
