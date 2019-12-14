@@ -174,6 +174,8 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             expression=model,
             _c=_sm.parent_class
         )
+    elif model_class == "ActionRef":
+        return "// Execute action [%s]\n" % model.act.name
     elif model_class == "NonDeterministicBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.
         choices = [construct_decision_code(choice, _sm) for choice in model.choice_blocks]

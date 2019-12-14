@@ -185,7 +185,8 @@ def transform_transition(_t, _vars):
 
     _t.used_variables = set([])
     for _s in _t.statements:
-        _t.used_variables |= _s.used_variables
+        if _s.__class__.__name__ != "ActionRef":
+            _t.used_variables |= _s.used_variables
 
     type(_t).__repr__ = lambda self: "%s->%s[%s]" % (
         self.source, self.target, expression_to_string(self.guard.smt)
@@ -235,7 +236,7 @@ def transform_model(_ast):
         # Assign unique ids to every variable for locking purposes.
         count = 0
 
-        # We want simple variables to have a lower id, such that they can safely be used in array indexing.
+        # We want simple variables to have a lower id, such that they can be safely used in array indexing.
         for key, variable in sorted(_c.name_to_variable.items(), key=lambda v: (v[1].type.size, v[0])):
             variable = _c.name_to_variable[key]
             variable.lock_id = count

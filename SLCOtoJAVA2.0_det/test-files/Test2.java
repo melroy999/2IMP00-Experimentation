@@ -141,17 +141,13 @@ public class Test2 {
                                     lockManager.unlock(1, 0); // Release [x[0], y]
                                     return false;
                                 default:
-                                    throw new RuntimeException(
-                                        "The default statement in a non-deterministic block should be unreachable!"
-                                    );
+                                    throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
                             }
                         }
                         lockManager.unlock(1, 0); // Release [x[0], y]
                         return false;
                     default:
-                        throw new RuntimeException(
-                            "The default statement in a non-deterministic block should be unreachable!"
-                        );
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
                 }
             }
 
@@ -227,25 +223,37 @@ public class Test2 {
 
             private boolean exec_SMC0() {
                 lockManager.lock(0); // Acquire [y]
-                switch(y) {
-                    case 2:
-                    case 3:
-                    case 4:
-                        lockManager.unlock(0); // Release [y]
-                        currentState = SM2Thread.States.SMC1;
-                        return true;
-                    default:
-                        if (y >= 5) {
+                if (y + 3 == 3 || y + 3 == 2 || y + 3 == 4) {
+                    switch(y + 3) {
+                        case 2:
+                        case 3:
+                        case 4:
                             lockManager.unlock(0); // Release [y]
                             currentState = SM2Thread.States.SMC1;
                             return true;
-                        }
-                        lockManager.unlock(0); // Release [y]
-                        return false;
+                        default:
+                            lockManager.unlock(0); // Release [y]
+                            return false;
+                    }
+                } else if(y == 2 || y == 4 || y == 3) {
+                    switch(y) {
+                        case 2:
+                        case 3:
+                        case 4:
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM2Thread.States.SMC1;
+                            return true;
+                        default:
+                            lockManager.unlock(0); // Release [y]
+                            return false;
+                    }
                 }
+                lockManager.unlock(0); // Release [y]
+                return false;
             }
 
             private boolean exec_SMC1() {
+                // Execute action [tau]
                 currentState = SM2Thread.States.SMC0;
                 return true;
             }

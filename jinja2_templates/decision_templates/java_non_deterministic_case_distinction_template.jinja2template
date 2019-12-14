@@ -12,8 +12,6 @@ switch(random.nextInt({{choices | length}})) {
 {% endfor %}
     default:
         {# No locks need to be released, since the return statement is unreachable. #}
-        throw new RuntimeException(
-            "The default statement in a non-deterministic block should be unreachable!"
-        );
+        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
 }
 {%- endif %}
