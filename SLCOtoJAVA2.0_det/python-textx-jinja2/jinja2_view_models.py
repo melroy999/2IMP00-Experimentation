@@ -95,7 +95,7 @@ class TransitionBlock:
 
         # If the guard is trivially satisfiable, no lock needs to be instantiated for the guard.
         if self.guard_expression.is_trivially_satisfiable or self.guard_expression.is_trivially_unsatisfiable:
-            self.target_locks = {}
+            self.target_locks = set([])
         elif self.starts_with_composite:
             self.target_locks = self.statements[0].lock_variables
         else:

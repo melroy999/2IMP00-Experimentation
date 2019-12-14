@@ -1,4 +1,5 @@
 from jinja2_filters import get_instruction
+from range_analysis import get_ranges
 from smt_helper_functions import do_z3_truth_check
 
 
@@ -140,7 +141,10 @@ def transform_statement(_s, _vars):
     """Transform the statement such that it provides all the data required for the code conversion"""
     class_name = _s.__class__.__name__
     if class_name == "Composite":
-        _s.guard = transform_statement(_s.guard, _vars)
+        if _s.guard is None:
+            _s.guard = true_expression
+        else:
+            _s.guard = transform_statement(_s.guard, _vars)
         _s.assignments = [transform_statement(_a, _vars) for _a in _s.assignments]
         _s.used_variables = gather_used_variables(_s.guard)
         for _a in _s.assignments:
@@ -179,6 +183,7 @@ def transform_transition(_t, _vars):
     _t.target = _t.target.name
     _t.priority = _t.priority
     _t.guard = true_expression if transition_guard is None else transition_guard
+
     _t.statements = [transform_statement(_s, _vars) for _s in _t.statements]
     _t.is_trivially_satisfiable = _t.guard.is_trivially_satisfiable
     _t.is_trivially_unsatisfiable = _t.guard.is_trivially_unsatisfiable
@@ -220,6 +225,8 @@ def transform_state_machine(_sm, _c):
             _sm.used_variables_per_state[_s] |= _t.used_variables
             _sm.used_variables |= _t.used_variables
             propagate_locking_variables(_t, _c.name_to_variable.keys())
+
+    get_ranges(_sm)
 
 
 def transform_model(_ast):

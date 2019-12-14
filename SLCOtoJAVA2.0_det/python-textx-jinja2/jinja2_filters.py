@@ -36,7 +36,7 @@ def get_default_variable_value(model):
     if model.defvalue is not None:
         return model.defvalue
     elif len(model.defvalues) > 0:
-        return "[%s]" % ", ".join([v for v in model.defvalue])
+        return "[%s]" % ", ".join([v for v in model.defvalues])
     elif model.type.base in ["Integer", "Byte"]:
         return '0' if model.type.size < 1 else "{%s}" % ", ".join(["0" for _ in range(0, model.type.size)])
     elif model.type.base == "Boolean":
@@ -157,8 +157,7 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
         return java_composite_template.render(
             guard=guard,
             assignments=assignments,
-            requires_lock=requires_lock,
-            include_guard=include_guard,
+            locks=model.lock_variables,
             _c=_sm.parent_class
         )
     elif model_class == "Assignment":

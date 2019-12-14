@@ -1,4 +1,4 @@
-{% if locks and add_lock %}
+{% if locks %}
 lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{locks | to_comma_separated_lock_name_list}}]
 {% endif %}
 {% if guard %}
