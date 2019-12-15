@@ -5,26 +5,106 @@ model Test2 {
 	P {
 	  variables Integer y
 	  state machines
-	    SM1 {
+	    SM0 {
 	      variables Integer[2] x
-		  initial SMC0 states SMC1
+		  initial SM0_0 states SM0_1
 		  transitions
-			from SMC1 to SMC0 {
+			from SM0_0 to SM0_1 {
 
 			}
-			from SMC0 to SMC1 {
-			  [x[0] := 0; y := y + 1]; [x[0] := 0; y := y + 1]
+			from SM0_0 to SM0_1 {
+              True
 			}
-			from SMC0 to SMC1 {
-			  [x[0] > 0; x[0] := 0; y := y + 1]; [x[0] := 0; y := y + 1]
+			from SM0_0 to SM0_1 {
+              False
 			}
-			from SMC1 to SMC0 {
-                True
+			from SM0_1 to SM0_0 {
+
 			}
-			from SMC1 to SMC0 {
-                False
+			from SM0_1 to SM0_0 {
+              True
+			}
+			from SM0_1 to SM0_0 {
+              False
+			}
+	    }
+	    SM1 {
+	      variables Integer[2] x
+		  initial SM1_0 states SM1_1
+		  transitions
+			from SM1_0 to SM1_1 {
+              [y <= 10; y := y + 1]
+			}
+			from SM1_0 to SM1_1 {
+              [y > 10; x[0] := 0; y := 0]
+			}
+			from SM1_1 to SM1_0 {
+              x[0] := x[0] + 1
 			}
 	    }
 	}
-	objects p: P(y:=1)
+	Q {
+	  variables Integer y Integer[11] x
+	  state machines
+	    SM0 {
+		  initial SM0_0 states SM0_1
+		  transitions
+			from SM0_0 to SM0_1 {
+              [y < 10; y := y + 1]
+			}
+			from SM0_0 to SM0_1 {
+              [y >= 10; x[0] := 0; y := 0]
+			}
+			from SM0_1 to SM0_0 {
+              x[y + 1] := x[y + 1] + 1
+			}
+	    }
+	}
+	R {
+	  variables Integer y
+	  state machines
+	    SM0 {
+	      initial SM0_0 states SM0_1
+	      transitions
+	        from SM0_0 to SM0_1 {
+	          [y % 4 = 0; y := y + 9]
+	        }
+	        from SM0_0 to SM0_1 {
+	          [y % 4 = 1; y := y + 2]
+	        }
+	        from SM0_0 to SM0_1 {
+	          [y % 4 = 2; y := y + 1]
+	        }
+	        from SM0_0 to SM0_1 {
+	          [y % 4 = 3; y := y + 3]
+	        }
+            from SM0_1 to SM0_0 {
+              y := y**2
+            }
+	  }
+	}
+	S {
+	  variables Integer y
+	  state machines
+	    SM0 {
+	      initial SM0_0 states SM0_1
+	      transitions
+	        from SM0_0 to SM0_1 {
+	          y % 4 = 0
+	        }
+	        from SM0_0 to SM0_1 {
+	          y % 4 = 1
+	        }
+	        from SM0_0 to SM0_1 {
+	          y % 4 = 2
+	        }
+	        from SM0_0 to SM0_1 {
+	          y % 4 = 3
+	        }
+            from SM0_1 to SM0_0 {
+              y := y**2
+            }
+	  }
+	}
+	objects p: P(y:=0), q: Q(), r: R(), s: S()
 }

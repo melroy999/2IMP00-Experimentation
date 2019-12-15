@@ -81,12 +81,14 @@ def get_instruction(m):
         exp_str = ("(byte) (%s)" if m.left.var.type.base == "Byte" else "%s") % get_instruction(m.right)
         return "%s = %s" % (var_str, exp_str)
     elif model_class == "Composite":
-        statement_strings = [get_instruction(m.guard)] if m.guard is not None else []
+        statement_strings = [get_instruction(m.guard)] if not m.guard.is_trivially_satisfiable else []
         statement_strings += [get_instruction(s) for s in m.assignments]
         return "[%s]" % "; ".join(statement_strings)
     elif model_class in ["Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
         if m.op == "":
             return get_instruction(m.left)
+        elif m.op == "**":
+            return "(int) Math.pow(%s, %s)" % (get_instruction(m.left), get_instruction(m.right))
         else:
             return "%s %s %s" % (get_instruction(m.left), java_operator_mappings[m.op], get_instruction(m.right))
     elif model_class == "Primary":
@@ -189,6 +191,9 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
             # If so, set the current execution code to empty string, to avoid duplicates.
             if choices[i] == choices[i + 1]:
                 choices[i] = ""
+
+        # Filter out all choices that are an empty string.
+        choices = [choice for choice in choices if choice != ""]
 
         return java_non_deterministic_case_distinction_template.render(
             release_locks=model.release_locks,

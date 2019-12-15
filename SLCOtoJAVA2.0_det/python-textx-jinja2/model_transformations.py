@@ -273,7 +273,7 @@ def transform_transition(t):
     t.guard_expression = t.guard.guard if class_name == "Composite" else t.guard
 
     # Make a human readable format of the transition.
-    type(t).__repr__ = lambda self: "%s->%s [%s]" % (
+    type(t).__repr__ = lambda self: "[%s -> %s] %s" % (
         self.source, self.target, "; ".join(v.__repr__() for v in [self.guard] + self.statements)
     )
     return t

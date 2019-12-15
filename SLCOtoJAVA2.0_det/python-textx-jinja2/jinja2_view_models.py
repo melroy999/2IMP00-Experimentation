@@ -98,10 +98,8 @@ class TransitionBlock:
         # Recall that composites with a true guard will never be a guard of a transition.
         if self.guard_expression.is_trivially_satisfiable or self.guard_expression.is_trivially_unsatisfiable:
             self.target_locks = set([])
-        elif self.starts_with_composite:
-            self.target_locks = self.statements[0].lock_variables
         else:
-            self.target_locks = self.guard_expression.lock_variables
+            self.target_locks = t.guard.lock_variables
 
     def __repr__(self):
         return self.guard_expression.__repr__()
