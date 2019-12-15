@@ -195,6 +195,10 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
         # Filter out all choices that are an empty string.
         choices = [choice for choice in choices if choice != ""]
 
+        # If only one choice remains, there is no reason to include an entire block.
+        if len(choices) == 1:
+            return choices[0]
+
         return java_non_deterministic_case_distinction_template.render(
             release_locks=model.release_locks,
             choices=choices,

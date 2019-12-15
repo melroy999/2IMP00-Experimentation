@@ -158,6 +158,7 @@ def propagate_simplification(model, variables=None):
             variables = {**model.name_to_variable, **sm.name_to_variable}
             for t in sm.transitions:
                 propagate_simplification(t, variables)
+
     elif class_name == "Transition":
         propagate_simplification(model.guard, variables)
         for s in model.statements:
@@ -172,6 +173,23 @@ def propagate_simplification(model, variables=None):
             model.statements = [model.guard] + model.statements
             model.guard = true_expression
 
+        # Are any of the expressions trivial? Remove the appropriate statements.
+        trivially_satisfiable_expression_ids = []
+        for i in range(0, len(model.statements)):
+            statement = model.statements[i]
+            if statement.__class__.__name__ == "Expression":
+                if statement.is_trivially_satisfiable:
+                    # Append to the start so that we don't delete the wrong items.
+                    trivially_satisfiable_expression_ids.insert(0, i)
+                elif statement.is_trivially_unsatisfiable:
+                    # Forget about everything after the statement--it is unreachable code.
+                    model.statements = model.statements[:i]
+                    break
+
+        # Remove the expressions that are always true.
+        for i in trivially_satisfiable_expression_ids:
+            model.statements.pop(i)
+
     elif class_name == "Composite":
         propagate_simplification(model.guard, variables)
         for a in model.assignments:
@@ -180,6 +198,7 @@ def propagate_simplification(model, variables=None):
         # Check if the guard is trivially satisfiable.
         model.is_trivially_satisfiable = model.guard.is_trivially_satisfiable
         model.is_trivially_unsatisfiable = model.guard.is_trivially_unsatisfiable
+
     elif class_name == "Expression":
         # Use SMT do determine whether the formula is trivially (un)satisfiable.
         model.is_trivially_satisfiable = z3_truth_check(model.smt, variables)

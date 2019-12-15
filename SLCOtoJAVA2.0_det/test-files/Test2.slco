@@ -81,7 +81,26 @@ model Test2 {
             from SM0_1 to SM0_0 {
               y := y**2
             }
-	  }
+        }
+        SM1 {
+	      initial SM1_0 states SM1_1
+	      transitions
+	        from SM1_0 to SM1_1 {
+	          y % 4 = 0; y := y + 9; True
+	        }
+	        from SM1_0 to SM1_1 {
+	          y % 4 = 1; y := y + 2
+	        }
+	        from SM1_0 to SM1_1 {
+	          y % 4 = 2; y := y + 1
+	        }
+	        from SM1_0 to SM1_1 {
+	          y % 4 = 3; y := y + 3
+	        }
+            from SM1_1 to SM1_0 {
+              y := y**2
+            }
+	    }
 	}
 	S {
 	  variables Integer y
@@ -106,5 +125,60 @@ model Test2 {
             }
 	  }
 	}
-	objects p: P(y:=0), q: Q(), r: R(), s: S()
+	T {
+	  variables Integer y
+	  state machines
+	    SM0 {
+	      initial SM0_0 states SM0_1
+	      transitions
+	        from SM0_0 to SM0_1 {
+	          y = 0
+	        }
+	        from SM0_0 to SM0_1 {
+	          y = 1
+	        }
+	        from SM0_0 to SM0_1 {
+	          y = 2
+	        }
+	        from SM0_0 to SM0_1 {
+	          y >= 0
+	        }
+	        from SM0_0 to SM0_1 {
+	          y <= 0
+	        }
+            from SM0_1 to SM0_0 {
+
+            }
+	    }
+	}
+	U {
+	  variables Integer y
+	  state machines
+	    SM0 {
+	      initial SM0_0 states SM0_1
+	      transitions
+	        from SM0_0 to SM0_1 {
+	          y = 0; True; y := y + 1
+	        }
+	        from SM0_0 to SM0_1 {
+	          y = 1; False; y := y - 1
+	        }
+	        from SM0_0 to SM0_1 {
+	          y = 0; True; y := y + 1; y := y - 1; True; False; y := y + 2; True
+	        }
+            from SM0_1 to SM0_0 {
+              False; True; y := y + 1
+            }
+            from SM0_1 to SM0_0 {
+              False; False; y := y + 1
+            }
+            from SM0_1 to SM0_0 {
+              True; True; y := y + 1
+            }
+            from SM0_1 to SM0_0 {
+              True; False; y := y + 1
+            }
+	    }
+	}
+	objects p: P(y:=0), q: Q(), r: R(), s: S(), t: T()
 }

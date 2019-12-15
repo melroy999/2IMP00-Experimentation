@@ -3,6 +3,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
 
 // main class
+@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused"})
 public class Test2 {
     // The objects in the model.
     private final SLCO_Class[] objects;
@@ -93,23 +94,13 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                switch(random.nextInt(1)) {
-                    case 0:
-                        currentState = SM0Thread.States.SM0_1;
-                        return true;
-                    default:
-                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
-                }
+                currentState = SM0Thread.States.SM0_1;
+                return true;
             }
 
             private boolean exec_SM0_1() {
-                switch(random.nextInt(1)) {
-                    case 0:
-                        currentState = SM0Thread.States.SM0_0;
-                        return true;
-                    default:
-                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
-                }
+                currentState = SM0Thread.States.SM0_0;
+                return true;
             }
 
             // Execute method
@@ -405,6 +396,7 @@ public class Test2 {
     private static class R implements SLCO_Class {
         // The threads
         private final SM0Thread T_SM0;
+        private final SM1Thread T_SM1;
 
         // Global variables
         private volatile int y;
@@ -511,6 +503,116 @@ public class Test2 {
             }
         }
 
+        interface R_SM1Thread_States {
+            enum States {
+                SM1_0, SM1_1
+            }
+        }
+
+        class SM1Thread extends Thread implements R_SM1Thread_States {
+            private Thread t;
+
+            // Current state
+            private SM1Thread.States currentState;
+
+            // Random number generator to handle non-determinism
+            private final Random random;
+
+            // Counter of main while-loop iterations
+            long transition_counter;
+
+            // The lock manager.
+            private final LockManager lockManager;
+
+            // Constructor
+            SM1Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM1Thread.States.SM1_0;
+            }
+
+            private boolean exec_SM1_0() {
+                lockManager.lock(0); // Acquire [y]
+                switch(y % 4) {
+                    case 2:
+                        lockManager.unlock(0); // Release [y]
+                        lockManager.lock(0); // Request [y]
+                        y = y + 1;
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM1Thread.States.SM1_1;
+                        return true;
+                    case 1:
+                        lockManager.unlock(0); // Release [y]
+                        lockManager.lock(0); // Request [y]
+                        y = y + 2;
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM1Thread.States.SM1_1;
+                        return true;
+                    case 3:
+                        lockManager.unlock(0); // Release [y]
+                        lockManager.lock(0); // Request [y]
+                        y = y + 3;
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM1Thread.States.SM1_1;
+                        return true;
+                    case 0:
+                        lockManager.unlock(0); // Release [y]
+                        lockManager.lock(0); // Request [y]
+                        y = y + 9;
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM1Thread.States.SM1_1;
+                        return true;
+                    default:
+                        lockManager.unlock(0); // Release [y]
+                        return false;
+                }
+            }
+
+            private boolean exec_SM1_1() {
+                lockManager.lock(0); // Request [y]
+                y = (int) Math.pow(y, 2);
+                lockManager.unlock(0); // Release [y]
+                currentState = SM1Thread.States.SM1_0;
+                return true;
+            }
+
+            // Execute method
+            private void exec() {
+                boolean result;
+                while(transition_counter < COUNTER_BOUND) {
+                    switch(currentState) {
+                        case SM1_0:
+                            result = exec_SM1_0();
+                            break;
+                        case SM1_1:
+                            result = exec_SM1_1();
+                            break;
+                        default:
+                            return;
+                    }
+
+                    // Increment counter
+                    if(result) {
+                        transition_counter++;
+                    }
+                }
+            }
+
+            // Run method
+            public void run() {
+                exec();
+            }
+
+            // Start method
+            public void start() {
+                if (t == null) {
+                    t = new Thread(this, "SM1Thread");
+                    t.start();
+                }
+            }
+        }
+
         // Constructor for main class
         R(int y) {
             // Create a lock manager.
@@ -519,11 +621,13 @@ public class Test2 {
             // Instantiate global variables
             this.y = y;
             T_SM0 = new R.SM0Thread(lockManager);
+            T_SM1 = new R.SM1Thread(lockManager);
         }
 
         // Start all threads
         public void startThreads() {
             T_SM0.start();
+            T_SM1.start();
         }
 
         // Join all threads
@@ -531,6 +635,7 @@ public class Test2 {
             while (true) {
                 try {
                     T_SM0.join();
+                    T_SM1.join();
                     break;
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -664,6 +769,320 @@ public class Test2 {
         }
     }
 
+    // representation of a class
+    private static class T implements SLCO_Class {
+        // The threads
+        private final SM0Thread T_SM0;
+
+        // Global variables
+        private volatile int y;
+
+        interface T_SM0Thread_States {
+            enum States {
+                SM0_0, SM0_1
+            }
+        }
+
+        class SM0Thread extends Thread implements T_SM0Thread_States {
+            private Thread t;
+
+            // Current state
+            private SM0Thread.States currentState;
+
+            // Random number generator to handle non-determinism
+            private final Random random;
+
+            // Counter of main while-loop iterations
+            long transition_counter;
+
+            // The lock manager.
+            private final LockManager lockManager;
+
+            // Constructor
+            SM0Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM0Thread.States.SM0_0;
+            }
+
+            private boolean exec_SM0_0() {
+                switch(random.nextInt(2)) {
+                    case 0:
+                        lockManager.lock(0); // Acquire [y]
+                        if (y == 1) {
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM0Thread.States.SM0_1;
+                            return true;
+                        } else if(y == 2) {
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM0Thread.States.SM0_1;
+                            return true;
+                        } else if(y == 0 || y <= 0) {
+                            switch(random.nextInt(2)) {
+                                case 0:
+                                    if (y <= 0) {
+                                        lockManager.unlock(0); // Release [y]
+                                        currentState = SM0Thread.States.SM0_1;
+                                        return true;
+                                    }
+                                    lockManager.unlock(0); // Release [y]
+                                    return false;
+                                case 1:
+                                    if (y == 0) {
+                                        lockManager.unlock(0); // Release [y]
+                                        currentState = SM0Thread.States.SM0_1;
+                                        return true;
+                                    }
+                                    lockManager.unlock(0); // Release [y]
+                                    return false;
+                                default:
+                                    throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                            }
+                        }
+                        lockManager.unlock(0); // Release [y]
+                        return false;
+                    case 1:
+                        lockManager.lock(0); // Acquire [y]
+                        if (y >= 0) {
+                            lockManager.unlock(0); // Release [y]
+                            currentState = SM0Thread.States.SM0_1;
+                            return true;
+                        }
+                        lockManager.unlock(0); // Release [y]
+                        return false;
+                    default:
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                }
+            }
+
+            private boolean exec_SM0_1() {
+                currentState = SM0Thread.States.SM0_0;
+                return true;
+            }
+
+            // Execute method
+            private void exec() {
+                boolean result;
+                while(transition_counter < COUNTER_BOUND) {
+                    switch(currentState) {
+                        case SM0_0:
+                            result = exec_SM0_0();
+                            break;
+                        case SM0_1:
+                            result = exec_SM0_1();
+                            break;
+                        default:
+                            return;
+                    }
+
+                    // Increment counter
+                    if(result) {
+                        transition_counter++;
+                    }
+                }
+            }
+
+            // Run method
+            public void run() {
+                exec();
+            }
+
+            // Start method
+            public void start() {
+                if (t == null) {
+                    t = new Thread(this, "SM0Thread");
+                    t.start();
+                }
+            }
+        }
+
+        // Constructor for main class
+        T(int y) {
+            // Create a lock manager.
+            LockManager lockManager = new LockManager(1);
+
+            // Instantiate global variables
+            this.y = y;
+            T_SM0 = new T.SM0Thread(lockManager);
+        }
+
+        // Start all threads
+        public void startThreads() {
+            T_SM0.start();
+        }
+
+        // Join all threads
+        public void joinThreads() {
+            while (true) {
+                try {
+                    T_SM0.join();
+                    break;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    // representation of a class
+    private static class U implements SLCO_Class {
+        // The threads
+        private final SM0Thread T_SM0;
+
+        // Global variables
+        private volatile int y;
+
+        interface U_SM0Thread_States {
+            enum States {
+                SM0_0, SM0_1
+            }
+        }
+
+        class SM0Thread extends Thread implements U_SM0Thread_States {
+            private Thread t;
+
+            // Current state
+            private SM0Thread.States currentState;
+
+            // Random number generator to handle non-determinism
+            private final Random random;
+
+            // Counter of main while-loop iterations
+            long transition_counter;
+
+            // The lock manager.
+            private final LockManager lockManager;
+
+            // Constructor
+            SM0Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM0Thread.States.SM0_0;
+            }
+
+            private boolean exec_SM0_0() {
+                lockManager.lock(0); // Acquire [y]
+                if (y == 1) {
+                    lockManager.unlock(0); // Release [y]
+                    currentState = SM0Thread.States.SM0_1;
+                    return true;
+                } else if(y == 0) {
+                    switch(random.nextInt(2)) {
+                        case 0:
+                            if (y == 0) {
+                                lockManager.unlock(0); // Release [y]
+                                lockManager.lock(0); // Request [y]
+                                y = y + 1;
+                                lockManager.unlock(0); // Release [y]
+                                currentState = SM0Thread.States.SM0_1;
+                                return true;
+                            }
+                            lockManager.unlock(0); // Release [y]
+                            return false;
+                        case 1:
+                            if (y == 0) {
+                                lockManager.unlock(0); // Release [y]
+                                lockManager.lock(0); // Request [y]
+                                y = y + 1;
+                                lockManager.unlock(0); // Release [y]
+                                lockManager.lock(0); // Request [y]
+                                y = y - 1;
+                                lockManager.unlock(0); // Release [y]
+                                currentState = SM0Thread.States.SM0_1;
+                                return true;
+                            }
+                            lockManager.unlock(0); // Release [y]
+                            return false;
+                        default:
+                            throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                    }
+                }
+                lockManager.unlock(0); // Release [y]
+                return false;
+            }
+
+            private boolean exec_SM0_1() {
+                switch(random.nextInt(2)) {
+                    case 0:
+                        currentState = SM0Thread.States.SM0_0;
+                        return true;
+                    case 1:
+                        lockManager.lock(0); // Request [y]
+                        y = y + 1;
+                        lockManager.unlock(0); // Release [y]
+                        currentState = SM0Thread.States.SM0_0;
+                        return true;
+                    default:
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                }
+            }
+
+            // Execute method
+            private void exec() {
+                boolean result;
+                while(transition_counter < COUNTER_BOUND) {
+                    switch(currentState) {
+                        case SM0_0:
+                            result = exec_SM0_0();
+                            break;
+                        case SM0_1:
+                            result = exec_SM0_1();
+                            break;
+                        default:
+                            return;
+                    }
+
+                    // Increment counter
+                    if(result) {
+                        transition_counter++;
+                    }
+                }
+            }
+
+            // Run method
+            public void run() {
+                exec();
+            }
+
+            // Start method
+            public void start() {
+                if (t == null) {
+                    t = new Thread(this, "SM0Thread");
+                    t.start();
+                }
+            }
+        }
+
+        // Constructor for main class
+        U(int y) {
+            // Create a lock manager.
+            LockManager lockManager = new LockManager(1);
+
+            // Instantiate global variables
+            this.y = y;
+            T_SM0 = new U.SM0Thread(lockManager);
+        }
+
+        // Start all threads
+        public void startThreads() {
+            T_SM0.start();
+        }
+
+        // Join all threads
+        public void joinThreads() {
+            while (true) {
+                try {
+                    T_SM0.join();
+                    break;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
     Test2() {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
@@ -671,6 +1090,7 @@ public class Test2 {
             new Q(new int[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0),
             new R(0),
             new S(0),
+            new T(0),
         };
     }
 
