@@ -331,6 +331,10 @@ def transform_model(model):
     for c in model.classes:
         propagate_used_variables(c)
         propagate_simplification(c)
+
+        for sm in c.statemachines:
+            get_ranges(sm)
+
         propagate_lock_variables(c, c.name_to_variable.keys())
 
     # Ensure that each class has references to its objects.

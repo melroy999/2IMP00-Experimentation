@@ -1,0 +1,24 @@
+model Test2 {
+    actions a
+
+	classes
+	P {
+	  variables Integer y
+	  state machines
+	    SM1 {
+	      variables Integer[2] x
+		  initial SM1_0 states SM1_1
+		  transitions
+			from SM1_0 to SM1_1 {
+              [y <= 10; y := y + 1]
+			}
+			from SM1_0 to SM1_1 {
+              [y > 10; x[0] := 0; y := 0]
+			}
+			from SM1_1 to SM1_0 {
+              x[0] := x[0] + 1
+			}
+	    }
+	}
+	objects p: P(y:=0)
+}

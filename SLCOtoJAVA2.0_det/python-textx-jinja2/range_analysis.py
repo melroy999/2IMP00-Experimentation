@@ -2,14 +2,19 @@ import math
 
 
 class Node:
-    def __init__(self, value, variables):
+    def __init__(self, value, variables, decision=None):
         self.value = value
-        # TODO the range might not be a single value--take the inverse of equals for example.
         self.range = {_v: TruthSet(-math.inf, math.inf) for _v in variables}
-        self.successors = set([])
+        self.__successors = set([])
+        self.__predecessors = set([])
+        self.decision = decision
 
     def __repr__(self):
-        return "%s %s" % (self.value, self.range)
+        return ("%s %s %s" % ("" if self.decision is None else self.decision, self.value, self.range)).strip()
+
+    def add_successor(self, value):
+        self.__successors.add(value)
+        value.__predecessors.add(self)
 
 
 class TruthSet:
@@ -108,42 +113,102 @@ def construct_control_flow_graph(model):
 
     # Create a node for each control point in the model and set the pointers appropriately.
     nodes = []
-    for _t in model.transitions:
-        # Get the node object for the starting point.
-        start_node = state_nodes[_t.source]
-
-        # Create notes for all the statements in the transition.
-        if len(_t.statements) > 0:
-            statements = [_t.guard]
-            if _t.statements[0].__class__.__name__ == "Composite":
-                statements.extend(_t.statements[0].assignments)
-            for statement in statements[1:]:
-                if statement.__class__.__name__ == "Composite":
-                    pass
-                else:
-                    pass
-
-
-            # We also only consider variables that we are interested in.
-            if _t.statements[0].__class__.__name__ == "Composite":
-                pass
-            else:
-                # Create the split. Note that the false can take on many forms, with many different ranges!
-                # We also only consider variables that we are interested in.
-                pass
+    for t in model.transitions:
+        if t.is_trivially_unsatisfiable:
+            false_node = Node(t.guard_expression, variables, False)
+            nodes.append(false_node)
+            state_nodes[t.source].add_successor(false_node)
+            false_node.add_successor(state_nodes[t.source])
         else:
-            # We may only have a guard, or a direct transition to another node.
-            if _t.guard.smt is True:
-                # We have no guard.
-                start_node.successors.add(state_nodes[_t.target])
+            # We need to add more nodes.
+            last_node = state_nodes[t.source]
+            if t.is_trivially_satisfiable:
+                # Only create a true node.
+                true_node = Node(t.guard_expression, variables, True)
+                nodes.append(true_node)
+                last_node.add_successor(true_node)
+                last_node = true_node
             else:
-                # Create the split. Note that the false can take on many forms, with many different ranges!
-                # We also only consider variables that we are interested in.
-                pass
-            pass
+                # Split the guard expression into a true and false group and give them infinite ranges.
+                true_node = Node(t.guard_expression, variables, True)
+                false_node = Node(t.guard_expression, variables, False)
 
-    # TODO guards should be split in a success and failure branch.
+                # Set the appropriate pointers.
+                nodes.append(true_node)
+                nodes.append(false_node)
+                last_node.add_successor(true_node)
+                last_node.add_successor(false_node)
+                false_node.add_successor(state_nodes[t.source])
+                last_node = true_node
 
+                # The guard might be a composite. Create the appropriate chain of assignments if that is the case.
+                if t.guard.__class__.__name__ == "Composite":
+                    for a in t.guard.assignments:
+                        current_node = Node(a, variables)
+                        nodes.append(current_node)
+                        last_node.add_successor(current_node)
+                        last_node = current_node
+
+            # Process the statements next.
+            for s in t.statements:
+                class_name = s.__class__.__name__
+                if class_name == "Expression":
+                    if s.is_trivially_satisfiable:
+                        # Only create a true node.
+                        true_node = Node(s, variables, True)
+                        nodes.append(true_node)
+                        last_node.add_successor(true_node)
+                        last_node = true_node
+                    else:
+                        # Split the guard expression into a true and false group and give them infinite ranges.
+                        true_node = Node(s, variables, True)
+                        false_node = Node(s, variables, False)
+
+                        # Set the appropriate pointers.
+                        nodes.append(true_node)
+                        nodes.append(false_node)
+                        last_node.add_successor(true_node)
+                        last_node.add_successor(false_node)
+                        false_node.add_successor(state_nodes[t.source])
+                        last_node = true_node
+
+                elif class_name == "Composite":
+                    if s.is_trivially_satisfiable:
+                        # Only create a true node.
+                        true_node = Node(s.guard, variables, True)
+                        nodes.append(true_node)
+                        last_node.add_successor(true_node)
+                        last_node = true_node
+                    else:
+                        # Split the guard expression into a true and false group and give them infinite ranges.
+                        true_node = Node(s.guard, variables, True)
+                        false_node = Node(s.guard, variables, False)
+
+                        # Set the appropriate pointers.
+                        nodes.append(true_node)
+                        nodes.append(false_node)
+                        last_node.add_successor(true_node)
+                        last_node.add_successor(false_node)
+                        false_node.add_successor(state_nodes[t.source])
+                        last_node = true_node
+
+                        for a in t.guard.assignments:
+                            current_node = Node(a, variables)
+                            nodes.append(current_node)
+                            last_node.add_successor(current_node)
+                            last_node = current_node
+
+                else:
+                    # The node is a simple assignment.
+                    current_node = Node(s, variables)
+                    nodes.append(current_node)
+                    last_node.add_successor(current_node)
+                    last_node = current_node
+
+            # Finalize the chain.
+            last_node.add_successor(state_nodes[t.target])
+
+    # TODO Return a reference to the starting node of the graph.
     pass
 
 
