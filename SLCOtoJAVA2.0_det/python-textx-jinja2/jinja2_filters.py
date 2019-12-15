@@ -11,6 +11,7 @@ class TransitDict(dict):
         return key
 
 
+# Conversion from SLCO to Java operators.
 java_operator_mappings = TransitDict()
 java_operator_mappings["<>"] = "!="
 java_operator_mappings["="] = "=="
@@ -58,13 +59,13 @@ def get_variable_instantiation_list(model, variables):
     }
 
     variable_instantiations = []
-    for _v in sorted(variables, key=lambda v: v.name):
+    for v in sorted(variables, key=lambda v2: v2.name):
         # Is a value assigned to the variable?
-        value = instantiated_variables[_v.name] if _v.name in instantiated_variables else get_default_variable_value(_v)
+        value = instantiated_variables[v.name] if v.name in instantiated_variables else get_default_variable_value(v)
 
-        if _v.type.size > 1:
-            variable_instantiations.append("new %s %s" % (get_java_type(_v.type, False), value))
-        elif _v.type.base == "Byte" and not vercors_verif:
+        if v.type.size > 1:
+            variable_instantiations.append("new %s %s" % (get_java_type(v.type, False), value))
+        elif v.type.base == "Byte" and not vercors_verif:
             variable_instantiations.append("(byte) %s" % value)
         else:
             variable_instantiations.append("%s" % value)
@@ -72,6 +73,7 @@ def get_variable_instantiation_list(model, variables):
 
 
 def get_instruction(m):
+    """Get the Java code associated with a given SLCO statement."""
     model_class = m.__class__.__name__
 
     if model_class == "Assignment":
@@ -97,6 +99,8 @@ def get_instruction(m):
         return ("!(%s)" if m.sign == "not" else m.sign + "%s") % exp_str
     elif model_class == "VariableRef":
         return m.var.name + ("[%s]" % get_instruction(m.index) if m.index is not None else "")
+    else:
+        return "// NYI [%s]" % model_class
 
 
 def get_guard_statement(model):
@@ -107,7 +111,7 @@ def get_guard_statement(model):
         # TODO simplify using SMT.
         #   - Remove formulas that are equivalent to an already encountered formula.
         #   - Use implication to check whether one formula is contained in another?
-        return " || ".join([get_instruction(_e) for _e in model.encapsulating_guard_expression])
+        return " || ".join([get_instruction(e) for e in model.encapsulating_guard_expression])
 
 
 def render_model(model, add_counter):
@@ -124,60 +128,60 @@ def render_class(model, add_counter):
     )
 
 
-def render_state_machine(model, add_counter, _c):
+def render_state_machine(model, add_counter, c):
     return java_state_machine_template.render(
         model=model,
         add_counter=add_counter,
-        _c=_c
+        _c=c
     )
 
 
-def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
+def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
     model_class = model.__class__.__name__
     if model_class == "TransitionBlock":
         if not model.starts_with_composite:
             composite_assignments = None
-            statements = [construct_decision_code(_s, _sm) for _s in model.statements]
+            statements = [construct_decision_code(s, sm) for s in model.statements]
         else:
-            composite_assignments = [construct_decision_code(_s, _sm, False) for _s in model.statements[0].assignments]
-            statements = [construct_decision_code(_s, _sm) for _s in model.statements[1:]]
+            composite_assignments = [construct_decision_code(s, sm, False) for s in model.composite_assignments]
+            statements = [construct_decision_code(s, sm) for s in model.statements[1:]]
 
         return java_transition_template.render(
             starts_with_composite=model.starts_with_composite,
+            composite_assignments=composite_assignments,
             statements=statements,
             target=model.target,
-            state_machine_name=_sm.name,
-            composite_assignments=composite_assignments,
+            state_machine_name=sm.name,
             release_locks=model.release_locks,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
     elif model_class == "Composite":
         guard = get_instruction(model.guard) if not model.guard.is_trivially_satisfiable and include_guard else None
-        assignments = [get_instruction(_a) for _a in model.assignments]
+        assignments = [get_instruction(a) for a in model.assignments]
         return java_composite_template.render(
             guard=guard,
             assignments=assignments,
             locks=model.lock_variables,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
     elif model_class == "Assignment":
         return java_assignment_template.render(
             requires_lock=requires_lock,
             locks=model.lock_variables if requires_lock else None,
             assignment=model,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
     elif model_class == "Expression":
         return java_expression_template.render(
             locks=model.lock_variables,
             expression=model,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
     elif model_class == "ActionRef":
         return "// Execute action [%s]\n" % model.act.name
     elif model_class == "NonDeterministicBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.
-        choices = [construct_decision_code(choice, _sm) for choice in model.choice_blocks]
+        choices = [construct_decision_code(choice, sm) for choice in model.choice_blocks]
         choices.sort()
 
         for i in range(0, len(choices) - 1):
@@ -190,12 +194,12 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             release_locks=model.release_locks,
             choices=choices,
             target_locks=model.target_locks,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
     elif model_class == "DeterministicIfThenElseBlock":
         # Order the choices such that the generated code is always the same.
         choices = [
-            (construct_decision_code(choice, _sm), get_guard_statement(choice)) for choice in model.choice_blocks
+            (construct_decision_code(choice, sm), get_guard_statement(choice)) for choice in model.choice_blocks
         ]
         choices.sort(key=lambda v: v[0])
 
@@ -204,11 +208,11 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             release_locks=model.release_locks,
             target_locks=model.target_locks,
             choices=choices,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.
-        choices = [(target, construct_decision_code(choice, _sm)) for (target, choice) in model.choice_blocks]
+        choices = [(target, construct_decision_code(choice, sm)) for (target, choice) in model.choice_blocks]
         choices.sort(key=lambda v: v[1])
 
         for i in range(0, len(choices) - 1):
@@ -218,7 +222,7 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
                 choices[i] = (choices[i][0], "")
 
         subject_expression = get_instruction(model.subject_expression)
-        default_decision_tree = construct_decision_code(model.default_decision_tree, _sm)
+        default_decision_tree = construct_decision_code(model.default_decision_tree, sm)
         return java_case_distinction_template.render(
             acquire_locks=model.acquire_locks,
             release_locks=model.release_locks,
@@ -226,24 +230,24 @@ def construct_decision_code(model, _sm, requires_lock=True, include_guard=True):
             subject_expression=subject_expression,
             default_decision_tree=default_decision_tree,
             choices=choices,
-            _c=_sm.parent_class
+            _c=sm.parent_class
         )
 
 
-def get_decision_structure(model, _sm):
+def get_decision_structure(model, sm):
     """Construct the decision code and the execution of the transitions"""
     view_model = get_decision_block_tree(model)
-    return construct_decision_code(view_model, _sm)
+    return construct_decision_code(view_model, sm)
 
 
 def to_comma_separated_lock_name_list(model):
     return ", ".join([v[0] + ("" if v[1] is None else "[%s]" % v[1]) for v in sorted(model)])
 
 
-def to_comma_separated_lock_id_list(model, _c):
+def to_comma_separated_lock_id_list(model, c):
     lock_ids = []
     for v in sorted(model):
-        base = _c.name_to_variable[v[0]].lock_id
+        base = c.name_to_variable[v[0]].lock_id
         index = 0 if v[1] is None else v[1]
         try:
             index = int(index)

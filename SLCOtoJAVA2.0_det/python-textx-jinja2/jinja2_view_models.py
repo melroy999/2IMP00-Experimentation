@@ -87,13 +87,15 @@ class TransitionBlock:
     # Which locks have to be acquired and released?
     release_locks = None
 
-    def __init__(self, _t):
-        self.guard_expression = _t.guard
-        self.statements = _t.statements
-        self.starts_with_composite = len(_t.statements) > 0 and _t.statements[0].__class__.__name__ == "Composite"
-        self.target = _t.target
+    def __init__(self, t):
+        self.guard_expression = t.guard_expression
+        self.statements = t.statements
+        self.starts_with_composite = t.guard.__class__.__name__ == "Composite"
+        self.composite_assignments = t.guard.assignments if self.starts_with_composite else None
+        self.target = t.target
 
         # If the guard is trivially satisfiable, no lock needs to be instantiated for the guard.
+        # Recall that composites with a true guard will never be a guard of a transition.
         if self.guard_expression.is_trivially_satisfiable or self.guard_expression.is_trivially_unsatisfiable:
             self.target_locks = set([])
         elif self.starts_with_composite:
@@ -121,11 +123,11 @@ def construct_decision_block_tree(model):
             # Case distinctions require an equality operation, with a constant right hand side.
             case_compatible_choices = {}
             key_to_expression = {}
-            for _c in choice_blocks:
-                if _c.__class__.__name__ == "TransitionBlock":
-                    guard_expression = _c.guard_expression
-                elif len(_c.encapsulating_guard_expression) == 1:
-                    guard_expression = next(iter(_c.encapsulating_guard_expression))
+            for choice in choice_blocks:
+                if choice.__class__.__name__ == "TransitionBlock":
+                    guard_expression = choice.guard_expression
+                elif len(choice.encapsulating_guard_expression) == 1:
+                    guard_expression = next(iter(choice.encapsulating_guard_expression))
                 else:
                     # The choice cannot be part of a case distinction.
                     continue
@@ -136,7 +138,7 @@ def construct_decision_block_tree(model):
                     if operator == "=" and type(arguments[1]) == int:
                         key_to_expression[arguments[0]] = guard_expression.left.left
                         case_group = case_compatible_choices.get(arguments[0], [])
-                        case_group.append((arguments[1], _c))
+                        case_group.append((arguments[1], choice))
                         case_compatible_choices[arguments[0]] = case_group
 
             # We are only interested in case distinctions with three or more values.
@@ -155,7 +157,7 @@ def construct_decision_block_tree(model):
                     processed_choices.add(grouping)
 
             # If we have just one key, all other choices will end up in the default case.
-            remaining_blocks = [_b for _b in choice_blocks if _b not in processed_choices]
+            remaining_blocks = [b for b in choice_blocks if b not in processed_choices]
             if len(case_compatible_choices) == 1:
                 for subject, targets in case_compatible_choices.items():
                     return DeterministicCaseDistinctionBlock(
