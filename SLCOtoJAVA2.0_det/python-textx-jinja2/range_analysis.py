@@ -73,11 +73,11 @@ class TruthSet:
         for v, t in sorted(events):
             if t == 0:
                 nr_open_ranges += 1
-                if t > 1:
+                if nr_open_ranges > 1:
                     # Start merge at the current value.
                     current_start = v
             else:
-                if t > 1:
+                if nr_open_ranges > 1:
                     # Close the current range.
                     intersected_ranges.append((current_start, v))
                 nr_open_ranges -= 1
@@ -309,7 +309,7 @@ def apply_assignment(ast, ranges):
     raise Exception("Range deduction not possible for operator {%s}." % operator)
 
 
-def apply_test(ast, ranges):
+def apply_test(ast, ranges, true_branch):
     if type(ast) in [int, bool, float, str]:
         return ranges
 
@@ -339,34 +339,35 @@ def apply_test(ast, ranges):
         rhs_variables = get_variable_names(ops[1][1:], ranges)
 
     if operator == "=":
+        # TODO inverse
         result_dict = {}
         for v in lhs_variables:
             result_dict[v] = ranges[v].intersect(rhs)
         for v in rhs_variables:
             result_dict[v] = ranges[v].intersect(lhs)
         return {**ranges, **result_dict}
-    if operator == "<":
+    if (true_branch and operator == "<") or (not true_branch and operator == ">="):
         result_dict = {}
         for v in lhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, rhs.ranges[-1][1] - 1))
         for v in rhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(lhs.ranges[0][0] + 1, math.inf))
         return {**ranges, **result_dict}
-    if operator == "<=":
+    if (true_branch and operator == "<=") or (not true_branch and operator == ">"):
         result_dict = {}
         for v in lhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, rhs.ranges[-1][1]))
         for v in rhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(lhs.ranges[0][0], math.inf))
         return {**ranges, **result_dict}
-    if operator == ">":
+    if (true_branch and operator == ">") or (not true_branch and operator == "<="):
         result_dict = {}
         for v in lhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(rhs.ranges[0][0] + 1, math.inf))
         for v in rhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, lhs.ranges[-1][1] - 1))
         return {**ranges, **result_dict}
-    if operator == ">=":
+    if (true_branch and operator == ">=") or (not true_branch and operator == "<"):
         result_dict = {}
         for v in lhs_variables:
             result_dict[v] = ranges[v].intersect(TruthSet(rhs.ranges[0][0], math.inf))
@@ -449,14 +450,13 @@ def range_propagation(cfg):
             # Which value is granted to us by our single predecessor? (statements always have one predecessor)
             assert len(target_node.predecessors) == 1
 
-            if target_node.decision is True:
-                predecessor = predecessors[0]
-                new_ranges = apply_test(target_node.value.smt, predecessor.ranges)
+            predecessor = predecessors[0]
+            new_ranges = apply_test(target_node.value.smt, predecessor.ranges, target_node.decision)
 
-                # Check if any of the ranges have changed.
-                if target_node.ranges != new_ranges:
-                    target_node.ranges = new_ranges
-                    queue.update(target_node.successors)
+            # Check if any of the ranges have changed.
+            if target_node.ranges != new_ranges:
+                target_node.ranges = new_ranges
+                queue.update(target_node.successors)
 
 
 def get_ranges(model):
