@@ -6,13 +6,13 @@ from smt_functions import to_simple_ast
 class Node:
     def __init__(self, value, variables, decision=None):
         self.value = value
-        self.range = {_v: TruthSet(-math.inf, math.inf) for _v in variables}
+        self.ranges = {_v: TruthSet(-math.inf, math.inf) for _v in variables}
         self.successors = set([])
         self.predecessors = set([])
         self.decision = decision
 
     def __repr__(self):
-        return ("%s %s %s" % ("" if self.decision is None else self.decision, self.value, self.range)).strip()
+        return ("%s %s %s" % ("" if self.decision is None else self.decision, self.value, self.ranges)).strip()
 
     def add_successor(self, value):
         self.successors.add(value)
@@ -119,6 +119,7 @@ class TruthSet:
 
     def divide(self, o):
         return TruthSet(ranges=[(lb / lb2, ub / ub2) for lb2, ub2 in o.ranges for lb, ub in self.ranges]).__flatten()
+
 
 
 class ControlFlowGraph:
@@ -244,29 +245,34 @@ def construct_control_flow_graph(model):
     return ControlFlowGraph(nodes + list(state_nodes.values()), state_nodes, variables)
 
 
+def get_variable_names(ops, ranges):
+    if len(ops) == 1:
+        return [v for v in [ops[0]] if v in ranges]
+    else:
+        try:
+            return [v for v in ["%s[%s]" % (ops[0], int(ops[1]))] if v in ranges]
+        except TypeError:
+            # TODO only select the appropriate variables, instead of all, using the ranges.
+            return [k for k in ranges.keys() if k.startswith(ops[0]) and k in ranges]
+
+
 def apply_assignment(ast, ranges):
     # Base types can be returned as-is.
     if type(ast) == int:
         return TruthSet(ast, ast)
 
     operator, ops = ast[0], ast[1:]
-    if operator == "var":
-        return ranges.get(ops[0], TruthSet(-math.inf, math.inf))
-    if operator == "var[]":
-        try:
-            return ranges.get("%s[%s]" % (ops[0], int(ops[1])), TruthSet(-math.inf, math.inf))
-        except TypeError:
-            # Take the union of all ranges and return it.
-            # TODO only select the appropriate variables, instead of all, using the ranges.
-            target_keys = [k for k in ranges.keys() if k.startswith(ops[0])]
+    if operator.startswith("var"):
+        target_variables = get_variable_names(ops, ranges)
 
-            if len(target_keys) == 0:
-                return TruthSet(-math.inf, math.inf)
-            else:
-                current_range = ranges[target_keys[0]]
-                for k in target_keys[1:]:
-                    current_range = current_range.union(ranges[k])
-                return current_range
+        if len(target_variables) == 0:
+            return TruthSet(-math.inf, math.inf)
+        else:
+            current_range = ranges.get(target_variables[0], TruthSet(-math.inf, math.inf))
+            for k in target_variables[1:]:
+                current_range = current_range.union(ranges.get(k, TruthSet(-math.inf, math.inf)))
+            return current_range
+
     if len(ops) == 2:
         lhs = apply_assignment(ops[0], ranges)
         rhs = apply_assignment(ops[1], ranges)
@@ -279,9 +285,13 @@ def apply_assignment(ast, ranges):
             return lhs.multiply(rhs)
         if operator == "/":
             return lhs.divide(rhs)
-
-
-
+        if operator == "%":
+            # A remainder operation limits the result to the value of the right hand side.
+            # TODO this is done simplistic right now--the range is dictated by the rhs, without observing the lhs.
+            rhs_min = rhs.ranges[0][0]
+            rhs_max = rhs.ranges[-1][1]
+            remainder_range = max(-rhs_min, rhs_max)
+            return TruthSet(-remainder_range, remainder_range)
 
 
 
@@ -290,19 +300,82 @@ def apply_assignment(ast, ranges):
         pass
 
         pass
-    if operator == "var[]":
-        pass
-
-    # Binary operations.
-    if len(ops) == 2:
-        pass
 
     # Unary operators.
     if len(ops) == 1:
         pass
 
     # Fallback for remaining cases.
-    raise Exception("Range deduction not possible.")
+    raise Exception("Range deduction not possible for operator {%s}." % operator)
+
+
+def apply_test(ast, ranges):
+    if type(ast) in [int, bool, float, str]:
+        return ranges
+
+    operator, ops = ast[0], ast[1:]
+
+    # if operator == "and":
+    #     # TODO this is not correct. The function returns a dict, since multiple variables might be at play.
+    #     return apply_test(ops[0], ranges).intersect(apply_test(ops[1], ranges))
+    # if operator == "or":
+    #     return apply_test(ops[0], ranges).union(apply_test(ops[1], ranges))
+    # if operator == "xor":
+    #     raise Exception("XOR is not yet implemented")
+    # if operator == "not":
+    #     lhs = apply_assignment(ops[0], ranges)
+    #     return lhs.negate()
+
+    # TODO: assuming that lhs and rhs are mathematical expressions.
+    lhs = apply_assignment(ops[0], ranges)
+    rhs = apply_assignment(ops[1], ranges)
+
+    # Check if either of the two sides is a variable.
+    lhs_variables = []
+    if type(ops[0]) is not int and ops[0][0].startswith("var"):
+        lhs_variables = get_variable_names(ops[0][1:], ranges)
+    rhs_variables = []
+    if type(ops[1]) is not int and ops[1][0].startswith("var"):
+        rhs_variables = get_variable_names(ops[1][1:], ranges)
+
+    if operator == "=":
+        result_dict = {}
+        for v in lhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(rhs)
+        for v in rhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(lhs)
+        return {**ranges, **result_dict}
+    if operator == "<":
+        result_dict = {}
+        for v in lhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, rhs[1] - 1))
+        for v in rhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(lhs[0] + 1, math.inf))
+        return {**ranges, **result_dict}
+    if operator == "<=":
+        result_dict = {}
+        for v in lhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, rhs[1]))
+        for v in rhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(lhs[0], math.inf))
+        return {**ranges, **result_dict}
+    if operator == ">":
+        result_dict = {}
+        for v in lhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(rhs[0] + 1, math.inf))
+        for v in rhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, lhs[1] - 1))
+        return {**ranges, **result_dict}
+    if operator == ">=":
+        result_dict = {}
+        for v in lhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(rhs[0], math.inf))
+        for v in rhs_variables:
+            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, lhs[1]))
+        return {**ranges, **result_dict}
+
+    # Fallback for remaining cases.
+    raise Exception("Range deduction not possible for operator {%s}." % operator)
 
 
 def range_propagation(cfg):
@@ -324,20 +397,20 @@ def range_propagation(cfg):
 
             # Copy the values of the first predecessor.
             new_ranges = {
-                k: v for k, v in predecessors[0].range.items()
+                k: v for k, v in predecessors[0].ranges.items()
             }
 
             # Take the union of all the other ranges.
             for predecessor in predecessors[1:]:
-                for k, v in predecessor.range.items():
+                for k, v in predecessor.ranges.items():
                     new_ranges[k] = v.union(new_ranges[k])
 
             # Check if any of the ranges have changed.
-            if target_node.range != new_ranges:
-                target_node.range = new_ranges
+            if target_node.ranges != new_ranges:
+                target_node.ranges = new_ranges
                 queue.update(target_node.successors)
         elif type_name == "Assignment":
-            # Which value is granted to us by our single predecessor? (assignments always have one predecessor)
+            # Which value is granted to us by our single predecessor? (statements always have one predecessor)
             assert len(target_node.predecessors) == 1
             predecessor = predecessors[0]
 
@@ -355,11 +428,11 @@ def range_propagation(cfg):
             # Apply the new assignment.
             # TODO make the assignment smarter--it might occur that both sides use the assignment use the same index.
             assignment = to_simple_ast(target_node.value.right)
-            range_result = apply_assignment(assignment, predecessor.range)
+            range_result = apply_assignment(assignment, predecessor.ranges)
 
             # Copy the values of the first predecessor and apply the value changes.
             new_ranges = {
-                k: v for k, v in predecessor.range.items()
+                k: v for k, v in predecessor.ranges.items()
             }
 
             # Check if the target variables have changed.
@@ -368,12 +441,22 @@ def range_propagation(cfg):
                     new_ranges[v] = range_result
 
             # Check if any of the ranges have changed.
-            if target_node.range != new_ranges:
-                target_node.range = new_ranges
+            if target_node.ranges != new_ranges:
+                target_node.ranges = new_ranges
                 queue.update(target_node.successors)
 
         elif type_name == "Expression":
-            pass
+            # Which value is granted to us by our single predecessor? (statements always have one predecessor)
+            assert len(target_node.predecessors) == 1
+
+            if target_node.decision is True:
+                predecessor = predecessors[0]
+                new_ranges = apply_test(target_node.value.smt, predecessor.ranges)
+
+                # Check if any of the ranges have changed.
+                if target_node.ranges != new_ranges:
+                    target_node.ranges = new_ranges
+                    queue.update(target_node.successors)
 
 
 def get_ranges(model):
