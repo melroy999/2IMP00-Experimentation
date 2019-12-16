@@ -7,5 +7,9 @@ lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // 
 {% if statements | length > 0 %}
 {% for statement in statements %}{{statement}}{% endfor %}
 {% endif %}
+{% if always_fails %}
+return false;
+{%- else %}
 currentState = {{state_machine_name}}Thread.States.{{target}};
 return true;
+{%- endif %}

@@ -124,6 +124,7 @@ def propagate_simplification(model, variables=None):
                     trivially_satisfiable_expression_ids.insert(0, i)
                 elif statement.is_trivially_unsatisfiable:
                     # Forget about everything after the statement--it is unreachable code.
+                    model.always_fails = True
                     model.statements = model.statements[:i]
                     break
 
@@ -209,6 +210,7 @@ def transform_transition(t):
     t.source = t.source.name
     t.target = t.target.name
     t.statements = [transform_statement(_s) for _s in t.statements]
+    t.always_fails = False
 
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
     first_statement = t.statements[0]
@@ -273,8 +275,8 @@ def transform_model(model):
         propagate_used_variables(c)
         propagate_simplification(c)
 
-        for sm in c.statemachines:
-            get_ranges(sm)
+        # for sm in c.statemachines:
+        #     get_ranges(sm)
 
         propagate_lock_variables(c, c.name_to_variable.keys())
 

@@ -180,5 +180,5 @@ model Test2 {
             }
 	    }
 	}
-	objects p: P(y:=0), q: Q(), r: R(), s: S(), t: T()
+	objects p: P(y:=0), q: Q(), r: R(), s: S(), t: T(), u: U()
 }

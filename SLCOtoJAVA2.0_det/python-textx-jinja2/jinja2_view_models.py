@@ -93,6 +93,7 @@ class TransitionBlock:
         self.starts_with_composite = t.guard.__class__.__name__ == "Composite"
         self.composite_assignments = t.guard.assignments if self.starts_with_composite else None
         self.target = t.target
+        self.always_fails = t.always_fails
 
         # If the guard is trivially satisfiable, no lock needs to be instantiated for the guard.
         # Recall that composites with a true guard will never be a guard of a transition.
