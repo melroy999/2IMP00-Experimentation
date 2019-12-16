@@ -1,4 +1,5 @@
 import math
+from queue import PriorityQueue
 
 from smt_functions import to_simple_ast
 
@@ -379,10 +380,32 @@ def apply_test(ast, ranges, true_branch):
     raise Exception("Range deduction not possible for operator {%s}." % operator)
 
 
-def range_propagation(cfg):
-    """Perform range propagation on the given control flow graph"""
-    queue = set(cfg.nodes)
+def get_default_variable_value(model):
+    """ return default value for given variable """
+    if model.defvalue is not None:
+        return model.defvalue
+    elif len(model.defvalues) > 0:
+        return [v for v in model.defvalues]
+    elif model.type.base in ["Integer", "Byte"]:
+        return 0 if model.type.size < 1 else [0 for _ in range(0, model.type.size)]
+    elif model.type.base == "Boolean":
+        return True if model.type.size < 1 else [True for _ in range(0, model.type.size)]
 
+
+def range_propagation(cfg, model):
+    """Perform range propagation on the given control flow graph"""
+    # First, assign the initial values for the used variables in the starting state.
+    starting_node = cfg.state_nodes[model.initialstate]
+    for v in model.variables:
+        if v.type.size == 0:
+            default_value = get_default_variable_value(v)
+            starting_node.ranges[v.name] = TruthSet(default_value, default_value)
+        else:
+            default_variables = get_default_variable_value(v)
+            for i, value in enumerate(default_variables):
+                starting_node.ranges["%s[%s]" % (v.name, i)] = TruthSet(value, value)
+
+    queue = set(cfg.nodes)
     while len(queue) > 0:
         # Take an arbitrary node from the queue to process.
         target_node = queue.pop()
@@ -462,7 +485,7 @@ def range_propagation(cfg):
 def get_ranges(model):
     """Given a model of a state machine, find the ranges of the local variables"""
     cfg = construct_control_flow_graph(model)
-    range_propagation(cfg)
+    range_propagation(cfg, model)
 
     # variables = []
     # for _v in model.variables:
