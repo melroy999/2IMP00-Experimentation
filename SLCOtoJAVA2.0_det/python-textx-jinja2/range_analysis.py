@@ -1,20 +1,24 @@
 import math
 
+from smt_functions import to_simple_ast
+
 
 class Node:
     def __init__(self, value, variables, decision=None):
         self.value = value
         self.range = {_v: TruthSet(-math.inf, math.inf) for _v in variables}
-        self.__successors = set([])
-        self.__predecessors = set([])
+        self.successors = set([])
+        self.predecessors = set([])
         self.decision = decision
 
     def __repr__(self):
         return ("%s %s %s" % ("" if self.decision is None else self.decision, self.value, self.range)).strip()
 
     def add_successor(self, value):
-        self.__successors.add(value)
-        value.__predecessors.add(self)
+        self.successors.add(value)
+        value.predecessors.add(self)
+
+
 
 
 class TruthSet:
@@ -23,7 +27,7 @@ class TruthSet:
         if ranges is not None:
             for lb, ub in ranges:
                 assert lb <= ub
-            self.ranges = ranges
+            self.ranges = list(ranges)
         else:
             # The range is always inclusive.
             assert lb <= ub
@@ -32,9 +36,9 @@ class TruthSet:
     def __repr__(self) -> str:
         return self.ranges.__repr__()
 
-    def union(self, other):
+    def union(self, other, check_list_length=True):
         """Calculate the union between two truth sets"""
-        if len(self.ranges) == 0 or len(other.ranges) == 0:
+        if check_list_length and (len(self.ranges) == 0 or len(other.ranges) == 0):
             return TruthSet(ranges=list(self.ranges + other.ranges))
 
         ranges = sorted(self.ranges + other.ranges)
@@ -94,6 +98,34 @@ class TruthSet:
             current_start = ub + 1
             if ub < math.inf:
                 ranges.append((ub + 1, math.inf))
+
+    def __eq__(self, o):
+        # Two truth sets are equivalent of their ranges are equivalent.
+        if self.__class__ != o.__class__:
+            return False
+        return self.ranges == o.ranges
+
+    def __flatten(self):
+        return self.union(TruthSet(ranges=[]), False)
+
+    def add(self, o):
+        return TruthSet(ranges=[(lb + lb2, ub + ub2) for lb2, ub2 in o.ranges for lb, ub in self.ranges]).__flatten()
+
+    def subtract(self, o):
+        return TruthSet(ranges=[(lb - lb2, ub - ub2) for lb2, ub2 in o.ranges for lb, ub in self.ranges]).__flatten()
+
+    def multiply(self, o):
+        return TruthSet(ranges=[(lb * lb2, ub * ub2) for lb2, ub2 in o.ranges for lb, ub in self.ranges]).__flatten()
+
+    def divide(self, o):
+        return TruthSet(ranges=[(lb / lb2, ub / ub2) for lb2, ub2 in o.ranges for lb, ub in self.ranges]).__flatten()
+
+
+class ControlFlowGraph:
+    def __init__(self, nodes, state_nodes, variables):
+        self.nodes = nodes
+        self.state_nodes = state_nodes
+        self.variables = variables
 
 
 def construct_control_flow_graph(model):
@@ -208,13 +240,147 @@ def construct_control_flow_graph(model):
             # Finalize the chain.
             last_node.add_successor(state_nodes[t.target])
 
-    # TODO Return a reference to the starting node of the graph.
-    pass
+    # Create a class wrapper for the control flow graph.
+    return ControlFlowGraph(nodes + list(state_nodes.values()), state_nodes, variables)
+
+
+def apply_assignment(ast, ranges):
+    # Base types can be returned as-is.
+    if type(ast) == int:
+        return TruthSet(ast, ast)
+
+    operator, ops = ast[0], ast[1:]
+    if operator == "var":
+        return ranges.get(ops[0], TruthSet(-math.inf, math.inf))
+    if operator == "var[]":
+        try:
+            return ranges.get("%s[%s]" % (ops[0], int(ops[1])), TruthSet(-math.inf, math.inf))
+        except TypeError:
+            # Take the union of all ranges and return it.
+            # TODO only select the appropriate variables, instead of all, using the ranges.
+            target_keys = [k for k in ranges.keys() if k.startswith(ops[0])]
+
+            if len(target_keys) == 0:
+                return TruthSet(-math.inf, math.inf)
+            else:
+                current_range = ranges[target_keys[0]]
+                for k in target_keys[1:]:
+                    current_range = current_range.union(ranges[k])
+                return current_range
+    if len(ops) == 2:
+        lhs = apply_assignment(ops[0], ranges)
+        rhs = apply_assignment(ops[1], ranges)
+
+        if operator == "+":
+            return lhs.add(rhs)
+        if operator == "-":
+            return lhs.subtract(rhs)
+        if operator == "*":
+            return lhs.multiply(rhs)
+        if operator == "/":
+            return lhs.divide(rhs)
+
+
+
+
+
+
+    # Power operator.
+    if operator == "**":
+        pass
+
+        pass
+    if operator == "var[]":
+        pass
+
+    # Binary operations.
+    if len(ops) == 2:
+        pass
+
+    # Unary operators.
+    if len(ops) == 1:
+        pass
+
+    # Fallback for remaining cases.
+    raise Exception("Range deduction not possible.")
+
+
+def range_propagation(cfg):
+    """Perform range propagation on the given control flow graph"""
+    queue = set(cfg.nodes)
+
+    while len(queue) > 0:
+        # Take an arbitrary node from the queue to process.
+        target_node = queue.pop()
+
+        # Get the type of the node and choose the propagation accordingly.
+        type_name = target_node.value.__class__.__name__
+        predecessors = list(target_node.predecessors)
+
+        if type_name == "str":
+            # Take the union of all predecessor values and check if the range has become narrower.
+            # We assume that a predecessor always exists.
+            assert len(predecessors) > 0
+
+            # Copy the values of the first predecessor.
+            new_ranges = {
+                k: v for k, v in predecessors[0].range.items()
+            }
+
+            # Take the union of all the other ranges.
+            for predecessor in predecessors[1:]:
+                for k, v in predecessor.range.items():
+                    new_ranges[k] = v.union(new_ranges[k])
+
+            # Check if any of the ranges have changed.
+            if target_node.range != new_ranges:
+                target_node.range = new_ranges
+                queue.update(target_node.successors)
+        elif type_name == "Assignment":
+            # Which value is granted to us by our single predecessor? (assignments always have one predecessor)
+            assert len(target_node.predecessors) == 1
+            predecessor = predecessors[0]
+
+            # What is the target variable of the assignment?
+            variable_ref = to_simple_ast(target_node.value.left)
+            if variable_ref[0] == "var":
+                target_variables = [variable_ref[1]]
+            else:
+                try:
+                    target_variables = ["%s[%s]" % (variable_ref[1], int(variable_ref[2]))]
+                except TypeError:
+                    # TODO only select the appropriate variables, instead of all, using the ranges.
+                    target_variables = [v for v in cfg.variables if v.startswith(variable_ref[1])]
+
+            # Apply the new assignment.
+            # TODO make the assignment smarter--it might occur that both sides use the assignment use the same index.
+            assignment = to_simple_ast(target_node.value.right)
+            range_result = apply_assignment(assignment, predecessor.range)
+
+            # Copy the values of the first predecessor and apply the value changes.
+            new_ranges = {
+                k: v for k, v in predecessor.range.items()
+            }
+
+            # Check if the target variables have changed.
+            for v in target_variables:
+                if v in cfg.variables:
+                    new_ranges[v] = range_result
+
+            # Check if any of the ranges have changed.
+            if target_node.range != new_ranges:
+                target_node.range = new_ranges
+                queue.update(target_node.successors)
+
+        elif type_name == "Expression":
+            pass
 
 
 def get_ranges(model):
     """Given a model of a state machine, find the ranges of the local variables"""
-    construct_control_flow_graph(model)
+    cfg = construct_control_flow_graph(model)
+    range_propagation(cfg)
+
     # variables = []
     # for _v in model.variables:
     #     if _v.type.base == "Integer":
@@ -230,6 +396,6 @@ def get_ranges(model):
     #
     # # Construct a control-flow graph.
     # # TODO: Simple naive idea: start by checking if there are + or - operations to see if infinite growth exists.
-
+    return cfg
 
     pass
