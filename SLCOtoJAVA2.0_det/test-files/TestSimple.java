@@ -56,9 +56,6 @@ public class TestSimple {
         // The threads
         private final SM1Thread T_SM1;
 
-        // Global variables
-        private volatile int y;
-
         interface P_SM1Thread_States {
             enum States {
                 SM1_0, SM1_1
@@ -78,8 +75,8 @@ public class TestSimple {
             long transition_counter;
 
             // Thread local variables
+            private int y;
             private int[] x;
-            private int z;
 
             // The lock manager.
             private final LockManager lockManager;
@@ -90,25 +87,21 @@ public class TestSimple {
                 this.lockManager = lockManager;
                 transition_counter = 0;
                 currentState = SM1Thread.States.SM1_0;
+                y = 0;
                 x = new int[] {0, 0};
-                z = 0;
             }
 
             private boolean exec_SM1_0() {
-                lockManager.lock(0); // Acquire [y]
                 if (y > 10) {
                     x[0] = 0;
                     y = 0;
-                    lockManager.unlock(0); // Release [y]
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 } else if(y <= 10) {
                     y = y + 1;
-                    lockManager.unlock(0); // Release [y]
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 }
-                lockManager.unlock(0); // Release [y]
                 return false;
             }
 
@@ -155,12 +148,11 @@ public class TestSimple {
         }
 
         // Constructor for main class
-        P(int y) {
+        P() {
             // Create a lock manager.
-            LockManager lockManager = new LockManager(1);
+            LockManager lockManager = new LockManager(0);
 
             // Instantiate global variables
-            this.y = y;
             T_SM1 = new P.SM1Thread(lockManager);
         }
 
@@ -185,7 +177,7 @@ public class TestSimple {
     TestSimple() {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
-            new P(0),
+            new P(),
         };
     }
 

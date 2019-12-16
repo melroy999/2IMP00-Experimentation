@@ -38,7 +38,7 @@ class TruthSet:
 
     def union(self, other, check_list_length=True):
         """Calculate the union between two truth sets"""
-        if check_list_length and (len(self.ranges) == 0 or len(other.ranges) == 0):
+        if len(self.ranges) == 0 or check_list_length and len(other.ranges) == 0:
             return TruthSet(ranges=list(self.ranges + other.ranges))
 
         ranges = sorted(self.ranges + other.ranges)
@@ -341,37 +341,37 @@ def apply_test(ast, ranges):
     if operator == "=":
         result_dict = {}
         for v in lhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(rhs)
+            result_dict[v] = ranges[v].intersect(rhs)
         for v in rhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(lhs)
+            result_dict[v] = ranges[v].intersect(lhs)
         return {**ranges, **result_dict}
     if operator == "<":
         result_dict = {}
         for v in lhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, rhs[1] - 1))
+            result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, rhs.ranges[-1][1] - 1))
         for v in rhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(lhs[0] + 1, math.inf))
+            result_dict[v] = ranges[v].intersect(TruthSet(lhs.ranges[0][0] + 1, math.inf))
         return {**ranges, **result_dict}
     if operator == "<=":
         result_dict = {}
         for v in lhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, rhs[1]))
+            result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, rhs.ranges[-1][1]))
         for v in rhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(lhs[0], math.inf))
+            result_dict[v] = ranges[v].intersect(TruthSet(lhs.ranges[0][0], math.inf))
         return {**ranges, **result_dict}
     if operator == ">":
         result_dict = {}
         for v in lhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(rhs[0] + 1, math.inf))
+            result_dict[v] = ranges[v].intersect(TruthSet(rhs.ranges[0][0] + 1, math.inf))
         for v in rhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, lhs[1] - 1))
+            result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, lhs.ranges[-1][1] - 1))
         return {**ranges, **result_dict}
     if operator == ">=":
         result_dict = {}
         for v in lhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(rhs[0], math.inf))
+            result_dict[v] = ranges[v].intersect(TruthSet(rhs.ranges[0][0], math.inf))
         for v in rhs_variables:
-            result_dict[v] = ranges[v].ranges.intersect(TruthSet(-math.inf, lhs[1]))
+            result_dict[v] = ranges[v].intersect(TruthSet(-math.inf, lhs.ranges[-1][1]))
         return {**ranges, **result_dict}
 
     # Fallback for remaining cases.
