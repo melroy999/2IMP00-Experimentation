@@ -275,8 +275,8 @@ def transform_model(model):
         propagate_used_variables(c)
         propagate_simplification(c)
 
-        for sm in c.statemachines:
-            get_ranges(sm)
+        # for sm in c.statemachines:
+        #     get_ranges(sm)
 
         propagate_lock_variables(c, c.name_to_variable.keys())
 

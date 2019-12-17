@@ -3,7 +3,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
 
 // main class
-@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused"})
+@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused", "SpellCheckingInspection"})
 public class {{model.name}} {
     // The objects in the model.
     private final SLCO_Class[] objects;

@@ -1,6 +1,0 @@
-{% if not is_part_of_decision_structure and model.guard %}
-{{model.guard | to_java_statement(add_counter)}}
-{% endif %}
-{% for s in model.assignments %}
-{{s | to_java_statement(add_counter)}}
-{% endfor %}

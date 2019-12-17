@@ -5,8 +5,6 @@ interface {{_c.name}}_{{model.name}}Thread_States {
 }
 
 class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}Thread_States {
-    private Thread t;
-
     // Current state
     private {{model.name}}Thread.States currentState;
 
@@ -90,13 +88,5 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     // Run method
     public void run() {
         exec();
-    }
-
-    // Start method
-    public void start() {
-        if (t == null) {
-            t = new Thread(this, "{{model.name}}Thread");
-            t.start();
-        }
     }
 }
