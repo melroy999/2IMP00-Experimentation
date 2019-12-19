@@ -70,6 +70,7 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
         {% else %}
         while(true) {
         {% endif %}
+            {% if currentState | length > 0 %}
             switch(currentState) {
                 {% for s in model.states %}
                 case {{s}}:
@@ -83,6 +84,13 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
                 default:
                     return;
             }
+            {% else %}
+            {% if add_counter %}
+            result = exec_{{model.states[0]}}();
+            {% else %}
+            exec_{{model.states[0]}}();
+            {% endif %}
+            {% endif %}
             {% if add_counter %}
 
             // Increment counter
@@ -90,8 +98,9 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
             if(result) {
                 successful_transition_counter++;
             }
-            {% endif %}
         }
+        System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+        {% endif %}
     }
 
     // Run method

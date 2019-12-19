@@ -14,21 +14,8 @@ true_expression = type("Expression", (object,), {
 })()
 
 
-def calculate_lock_ids(c):
-    """Assign unique ids to every variable for locking purposes"""
-    count = 0
-    # We want simple variables to have a lower id, such that they can be safely used in array indexing.
-    for key, variable in sorted(c.name_to_variable.items(), key=lambda v: (v[1].type.size, v[0])):
-        variable = c.name_to_variable[key]
-        variable.lock_id = count
-        if variable.type.size > 1:
-            count += variable.type.size
-        else:
-            count += 1
-    c.number_of_class_variables = count
-
-
 def object_to_comment(m):
+    """Convert a TextX object to a comment string"""
     model_class = m.__class__.__name__
 
     if model_class == "Transition":
@@ -143,7 +130,7 @@ def propagate_simplification(model, variables=None):
         model.is_trivially_satisfiable = model.guard.is_trivially_satisfiable
         model.is_trivially_unsatisfiable = model.guard.is_trivially_unsatisfiable
 
-        if model.is_trivially_satisfiable:
+        if model.is_trivially_satisfiable and model.guard.smt is not True:
             model.comment_string += " (trivially satisfiable)"
         if model.is_trivially_unsatisfiable:
             model.comment_string += " (trivially unsatisfiable)"
@@ -218,6 +205,122 @@ def propagate_lock_variables(model, class_variables):
 
     # Always return a copy such that the original is never altered accidentally.
     return set(model.lock_variables)
+
+
+class Node:
+    def __init__(self, key):
+        self.predecessors = set([])
+        self.successors = set([])
+        self.key = key
+        self.max_no_successors = 0
+
+    def __repr__(self):
+        return "%s" % self.key
+
+    def add_successor(self, value):
+        self.successors.add(value)
+        self.max_no_successors = len(self.successors)
+        value.predecessors.add(self)
+
+
+def construct_variable_dependency_graph(model, variable_to_node, variable_stack=None):
+    if variable_stack is None:
+        variable_stack = []
+    if model is None:
+        return
+
+    class_name = model.__class__.__name__
+    if class_name == "Transition":
+        construct_variable_dependency_graph(model.guard, variable_to_node, variable_stack)
+        for s in model.statements:
+            construct_variable_dependency_graph(s, variable_to_node, variable_stack)
+    elif class_name == "Composite":
+        construct_variable_dependency_graph(model.guard, variable_to_node, variable_stack)
+        for a in model.assignments:
+            construct_variable_dependency_graph(a, variable_to_node, variable_stack)
+    elif class_name == "ExpressionRef":
+        if len(variable_stack) > 0 and model.ref in variable_to_node:
+            target_variable = variable_to_node[model.ref]
+            parent_variable = variable_to_node[variable_stack[-1]]
+            parent_variable.add_successor(target_variable)
+        variable_stack.append(model.ref)
+        construct_variable_dependency_graph(model.index, variable_to_node, variable_stack)
+        variable_stack.pop()
+    elif class_name == "VariableRef":
+        if len(variable_stack) > 0 and model.var.name in variable_to_node:
+            target_variable = variable_to_node[model.var.name]
+            parent_variable = variable_to_node[variable_stack[-1]]
+            parent_variable.add_successor(target_variable)
+        variable_stack.append(model.var.name)
+        construct_variable_dependency_graph(model.index, variable_to_node, variable_stack)
+        variable_stack.pop()
+    elif class_name == "Primary":
+        construct_variable_dependency_graph(model.body, variable_to_node, variable_stack)
+        construct_variable_dependency_graph(model.ref, variable_to_node, variable_stack)
+        construct_variable_dependency_graph(model.value, variable_to_node, variable_stack)
+    elif class_name in ["Assignment", "Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
+        construct_variable_dependency_graph(model.left, variable_to_node, variable_stack)
+        construct_variable_dependency_graph(model.right, variable_to_node, variable_stack)
+
+
+def assign_lock_ids(model):
+    """Assign lock ids to every class variable, using a dependency graph"""
+    # First, create nodes for every variable we are interested in.
+    variable_to_node = {v: Node(v) for v in model.name_to_variable.keys()}
+
+    # Create a dependency graph, where a variable x depends on y if it is used in the index of x.
+    for sm in model.statemachines:
+        for t in sm.transitions:
+            construct_variable_dependency_graph(t, variable_to_node)
+
+    to_assign = set(variable_to_node.keys())
+    counter = 0
+    while len(to_assign) > 0:
+        # Lock ids are granted first to the leaves in the graph.
+        # Continue until no more leaves can be found.
+        while any(len(variable_to_node[v].successors) == 0 for v in to_assign):
+            for v in sorted(list(to_assign), key=lambda _v: (variable_to_node[_v].max_no_successors, _v)):
+                target_node = variable_to_node[v]
+                if len(target_node.successors) == 0:
+                    variable = model.name_to_variable[v]
+                    variable.lock_id = counter
+                    to_assign.discard(v)
+
+                    # Remove the association of the predecessor nodes to the target node.
+                    for node in target_node.predecessors:
+                        node.successors.discard(target_node)
+
+                    # Determine the next id to use.
+                    if variable.type.size > 1:
+                        counter += variable.type.size
+                    else:
+                        counter += 1
+
+        # No more leaves can be found, implying a circular reference.
+        # Process the node that depends on the fewest other nodes first.
+        remaining_variables = sorted(list(to_assign), key=lambda _v: (variable_to_node[_v].max_no_successors, _v))
+        if len(remaining_variables) > 0:
+            v = remaining_variables[0]
+            target_node = variable_to_node[v]
+            variable = model.name_to_variable[v]
+            variable.lock_id = counter
+            to_assign.discard(v)
+
+            # Remove any existing self-references.
+            target_node.predecessors.discard(target_node)
+
+            # Remove the association of the predecessor nodes to the target node.
+            for node in target_node.predecessors:
+                node.successors.discard(target_node)
+                node.predecessors.discard(target_node)
+
+            # Determine the next id to use.
+            if variable.type.size > 1:
+                counter += variable.type.size
+            else:
+                counter += 1
+
+    model.number_of_class_variables = counter
 
 
 #
@@ -308,7 +411,6 @@ def transform_model(model):
         c.name_to_variable = {v.name: v for v in c.variables}
         for sm in c.statemachines:
             transform_state_machine(sm, c)
-        calculate_lock_ids(c)
 
         # Give the variables a readable representation.
         for v in c.variables:
@@ -320,10 +422,7 @@ def transform_model(model):
     for c in model.classes:
         propagate_used_variables(c)
         propagate_simplification(c)
-
-        # for sm in c.statemachines:
-        #     get_ranges(sm)
-
+        assign_lock_ids(c)
         propagate_lock_variables(c, c.name_to_variable.keys())
 
     # Ensure that each class has references to its objects.
