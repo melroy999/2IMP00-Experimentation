@@ -1,4 +1,6 @@
+{% if comment %}
 // {{comment}}
+{% endif %}
 {% if starts_with_composite and composite_assignments | length > 0 %}
 {% for statement in composite_assignments %}{{statement}}{% endfor %}
 {% endif %}

@@ -7,7 +7,8 @@ lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}}); // Ac
 {% endif %}
 switch({{subject_expression}}) {
     {% for choice in choices %}
-    case {{choice[0]}}:
+    case {{choice[0]}}: {% if choice[2] %}// {{choice[2]}} {% endif %}
+
         {% if choice[1] != "" %}
         {{choice[1] | indent(8, False)}}
         {% endif %}

@@ -90,15 +90,13 @@ public class TestSimple {
             }
 
             private boolean exec_SM1_0() {
-                if (y <= 10) {
-                    // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}
-                    y = y + 1;
-                    currentState = SM1Thread.States.SM1_1;
-                    return true;
-                } else if(y > 10) {
-                    // from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]}
+                if (y > 10) { // from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]} 
                     x[0] = 0;
                     y = 0;
+                    currentState = SM1Thread.States.SM1_1;
+                    return true;
+                } else if(y <= 10) { // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]} 
+                    y = y + 1;
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 }

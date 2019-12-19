@@ -3,7 +3,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
 
 // main class
-@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused"})
+@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused", "SpellCheckingInspection"})
 public class Test2 {
     // The objects in the model.
     private final SLCO_Class[] objects;
@@ -67,8 +67,6 @@ public class Test2 {
         }
 
         class SM0Thread extends Thread implements P_SM0Thread_States {
-            private Thread t;
-
             // Current state
             private SM0Thread.States currentState;
 
@@ -94,13 +92,33 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                currentState = SM0Thread.States.SM0_1;
-                return true;
+                switch(random.nextInt(2)) {
+                    case 0:
+                        // from SM0_0 to SM0_1 {tau}
+                        currentState = SM0Thread.States.SM0_1;
+                        return true;
+                    case 1:
+                        // from SM0_0 to SM0_1 {true}
+                        currentState = SM0Thread.States.SM0_1;
+                        return true;
+                    default:
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                }
             }
 
             private boolean exec_SM0_1() {
-                currentState = SM0Thread.States.SM0_0;
-                return true;
+                switch(random.nextInt(2)) {
+                    case 0:
+                        // from SM0_1 to SM0_0 {tau}
+                        currentState = SM0Thread.States.SM0_0;
+                        return true;
+                    case 1:
+                        // from SM0_1 to SM0_0 {true}
+                        currentState = SM0Thread.States.SM0_0;
+                        return true;
+                    default:
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                }
             }
 
             // Execute method
@@ -129,14 +147,6 @@ public class Test2 {
             public void run() {
                 exec();
             }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM0Thread");
-                    t.start();
-                }
-            }
         }
 
         interface P_SM1Thread_States {
@@ -146,8 +156,6 @@ public class Test2 {
         }
 
         class SM1Thread extends Thread implements P_SM1Thread_States {
-            private Thread t;
-
             // Current state
             private SM1Thread.States currentState;
 
@@ -174,13 +182,13 @@ public class Test2 {
 
             private boolean exec_SM1_0() {
                 lockManager.lock(0); // Acquire [y]
-                if (y > 10) {
+                if (y > 10) { // from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]} 
                     x[0] = 0;
                     y = 0;
                     lockManager.unlock(0); // Release [y]
                     currentState = SM1Thread.States.SM1_1;
                     return true;
-                } else if(y <= 10) {
+                } else if(y <= 10) { // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]} 
                     y = y + 1;
                     lockManager.unlock(0); // Release [y]
                     currentState = SM1Thread.States.SM1_1;
@@ -191,6 +199,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_1() {
+                // from SM1_1 to SM1_0 {x[0] = x[0] + 1}
                 x[0] = x[0] + 1;
                 currentState = SM1Thread.States.SM1_0;
                 return true;
@@ -221,14 +230,6 @@ public class Test2 {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM1Thread");
-                    t.start();
-                }
             }
         }
 
@@ -279,8 +280,6 @@ public class Test2 {
         }
 
         class SM0Thread extends Thread implements Q_SM0Thread_States {
-            private Thread t;
-
             // Current state
             private SM0Thread.States currentState;
 
@@ -303,13 +302,13 @@ public class Test2 {
 
             private boolean exec_SM0_0() {
                 lockManager.lock(1, 0); // Acquire [x[0], y]
-                if (y >= 10) {
+                if (y >= 10) { // from SM0_0 to SM0_1 {[y >= 10; x[0] = 0; y = 0]} 
                     x[0] = 0;
                     y = 0;
                     lockManager.unlock(1, 0); // Release [x[0], y]
                     currentState = SM0Thread.States.SM0_1;
                     return true;
-                } else if(y < 10) {
+                } else if(y < 10) { // from SM0_0 to SM0_1 {[y < 10; y = y + 1]} 
                     y = y + 1;
                     lockManager.unlock(1, 0); // Release [x[0], y]
                     currentState = SM0Thread.States.SM0_1;
@@ -320,6 +319,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
+                // from SM0_1 to SM0_0 {x[y + 1] = x[y + 1] + 1}
                 lockManager.lock(1 + y + 1, 0); // Request [x[y + 1], y]
                 x[y + 1] = x[y + 1] + 1;
                 lockManager.unlock(1 + y + 1, 0); // Release [x[y + 1], y]
@@ -352,14 +352,6 @@ public class Test2 {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM0Thread");
-                    t.start();
-                }
             }
         }
 
@@ -408,8 +400,6 @@ public class Test2 {
         }
 
         class SM0Thread extends Thread implements R_SM0Thread_States {
-            private Thread t;
-
             // Current state
             private SM0Thread.States currentState;
 
@@ -433,22 +423,22 @@ public class Test2 {
             private boolean exec_SM0_0() {
                 lockManager.lock(0); // Acquire [y]
                 switch(y % 4) {
-                    case 2:
+                    case 2: // from SM0_0 to SM0_1 {[y % 4 = 2; y = y + 1]} 
                         y = y + 1;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_1;
                         return true;
-                    case 1:
+                    case 1: // from SM0_0 to SM0_1 {[y % 4 = 1; y = y + 2]} 
                         y = y + 2;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_1;
                         return true;
-                    case 3:
+                    case 3: // from SM0_0 to SM0_1 {[y % 4 = 3; y = y + 3]} 
                         y = y + 3;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_1;
                         return true;
-                    case 0:
+                    case 0: // from SM0_0 to SM0_1 {[y % 4 = 0; y = y + 9]} 
                         y = y + 9;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_1;
@@ -460,6 +450,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
+                // from SM0_1 to SM0_0 {y = y ** 2}
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -493,14 +484,6 @@ public class Test2 {
             public void run() {
                 exec();
             }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM0Thread");
-                    t.start();
-                }
-            }
         }
 
         interface R_SM1Thread_States {
@@ -510,8 +493,6 @@ public class Test2 {
         }
 
         class SM1Thread extends Thread implements R_SM1Thread_States {
-            private Thread t;
-
             // Current state
             private SM1Thread.States currentState;
 
@@ -535,28 +516,28 @@ public class Test2 {
             private boolean exec_SM1_0() {
                 lockManager.lock(0); // Acquire [y]
                 switch(y % 4) {
-                    case 2:
+                    case 2: // from SM1_0 to SM1_1 {y % 4 = 2; y = y + 1} 
                         lockManager.unlock(0); // Release [y]
                         lockManager.lock(0); // Request [y]
                         y = y + 1;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM1Thread.States.SM1_1;
                         return true;
-                    case 1:
+                    case 1: // from SM1_0 to SM1_1 {y % 4 = 1; y = y + 2} 
                         lockManager.unlock(0); // Release [y]
                         lockManager.lock(0); // Request [y]
                         y = y + 2;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM1Thread.States.SM1_1;
                         return true;
-                    case 3:
+                    case 3: // from SM1_0 to SM1_1 {y % 4 = 3; y = y + 3} 
                         lockManager.unlock(0); // Release [y]
                         lockManager.lock(0); // Request [y]
                         y = y + 3;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM1Thread.States.SM1_1;
                         return true;
-                    case 0:
+                    case 0: // from SM1_0 to SM1_1 {y % 4 = 0; y = y + 9; true} 
                         lockManager.unlock(0); // Release [y]
                         lockManager.lock(0); // Request [y]
                         y = y + 9;
@@ -570,6 +551,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_1() {
+                // from SM1_1 to SM1_0 {y = y ** 2}
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -602,14 +584,6 @@ public class Test2 {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM1Thread");
-                    t.start();
-                }
             }
         }
 
@@ -659,8 +633,6 @@ public class Test2 {
         }
 
         class SM0Thread extends Thread implements S_SM0Thread_States {
-            private Thread t;
-
             // Current state
             private SM0Thread.States currentState;
 
@@ -684,10 +656,10 @@ public class Test2 {
             private boolean exec_SM0_0() {
                 lockManager.lock(0); // Acquire [y]
                 switch(y % 4) {
-                    case 0:
-                    case 1:
-                    case 2:
-                    case 3:
+                    case 0: // from SM0_0 to SM0_1 {y % 4 = 0} 
+                    case 1: // from SM0_0 to SM0_1 {y % 4 = 1} 
+                    case 2: // from SM0_0 to SM0_1 {y % 4 = 2} 
+                    case 3: // from SM0_0 to SM0_1 {y % 4 = 3} 
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_1;
                         return true;
@@ -698,6 +670,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
+                // from SM0_1 to SM0_0 {y = y ** 2}
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -730,14 +703,6 @@ public class Test2 {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM0Thread");
-                    t.start();
-                }
             }
         }
 
@@ -784,8 +749,6 @@ public class Test2 {
         }
 
         class SM0Thread extends Thread implements T_SM0Thread_States {
-            private Thread t;
-
             // Current state
             private SM0Thread.States currentState;
 
@@ -810,18 +773,18 @@ public class Test2 {
                 switch(random.nextInt(2)) {
                     case 0:
                         lockManager.lock(0); // Acquire [y]
-                        if (y == 1) {
+                        if (y == 1) { // from SM0_0 to SM0_1 {y = 1} 
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
                             return true;
-                        } else if(y == 2) {
+                        } else if(y == 2) { // from SM0_0 to SM0_1 {y = 2} 
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
                             return true;
-                        } else if(y <= 0 || y == 0) {
+                        } else if(y <= 0 || y == 0) { 
                             switch(random.nextInt(2)) {
                                 case 0:
-                                    if (y <= 0) {
+                                    if (y <= 0) { // from SM0_0 to SM0_1 {y <= 0} 
                                         lockManager.unlock(0); // Release [y]
                                         currentState = SM0Thread.States.SM0_1;
                                         return true;
@@ -829,7 +792,7 @@ public class Test2 {
                                     lockManager.unlock(0); // Release [y]
                                     return false;
                                 case 1:
-                                    if (y == 0) {
+                                    if (y == 0) { // from SM0_0 to SM0_1 {y = 0} 
                                         lockManager.unlock(0); // Release [y]
                                         currentState = SM0Thread.States.SM0_1;
                                         return true;
@@ -844,7 +807,7 @@ public class Test2 {
                         return false;
                     case 1:
                         lockManager.lock(0); // Acquire [y]
-                        if (y >= 0) {
+                        if (y >= 0) { // from SM0_0 to SM0_1 {y >= 0} 
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
                             return true;
@@ -857,6 +820,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
+                // from SM0_1 to SM0_0 {tau}
                 currentState = SM0Thread.States.SM0_0;
                 return true;
             }
@@ -886,14 +850,6 @@ public class Test2 {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM0Thread");
-                    t.start();
-                }
             }
         }
 
@@ -940,8 +896,6 @@ public class Test2 {
         }
 
         class SM0Thread extends Thread implements U_SM0Thread_States {
-            private Thread t;
-
             // Current state
             private SM0Thread.States currentState;
 
@@ -964,24 +918,13 @@ public class Test2 {
 
             private boolean exec_SM0_0() {
                 lockManager.lock(0); // Acquire [y]
-                if (y == 1) {
+                if (y == 1) { // from SM0_0 to SM0_1 {y = 1; false; y = y - 1} 
                     lockManager.unlock(0); // Release [y]
                     return false;
-                } else if(y == 0) {
+                } else if(y == 0) { 
                     switch(random.nextInt(2)) {
                         case 0:
-                            if (y == 0) {
-                                lockManager.unlock(0); // Release [y]
-                                lockManager.lock(0); // Request [y]
-                                y = y + 1;
-                                lockManager.unlock(0); // Release [y]
-                                currentState = SM0Thread.States.SM0_1;
-                                return true;
-                            }
-                            lockManager.unlock(0); // Release [y]
-                            return false;
-                        case 1:
-                            if (y == 0) {
+                            if (y == 0) { // from SM0_0 to SM0_1 {y = 0; true; y = y + 1; y = y - 1; true; false; y = y + 2; true} 
                                 lockManager.unlock(0); // Release [y]
                                 lockManager.lock(0); // Request [y]
                                 y = y + 1;
@@ -990,6 +933,17 @@ public class Test2 {
                                 y = y - 1;
                                 lockManager.unlock(0); // Release [y]
                                 return false;
+                            }
+                            lockManager.unlock(0); // Release [y]
+                            return false;
+                        case 1:
+                            if (y == 0) { // from SM0_0 to SM0_1 {y = 0; true; y = y + 1} 
+                                lockManager.unlock(0); // Release [y]
+                                lockManager.lock(0); // Request [y]
+                                y = y + 1;
+                                lockManager.unlock(0); // Release [y]
+                                currentState = SM0Thread.States.SM0_1;
+                                return true;
                             }
                             lockManager.unlock(0); // Release [y]
                             return false;
@@ -1004,13 +958,15 @@ public class Test2 {
             private boolean exec_SM0_1() {
                 switch(random.nextInt(2)) {
                     case 0:
+                        // from SM0_1 to SM0_0 {true; false; y = y + 1}
+                        return false;
+                    case 1:
+                        // from SM0_1 to SM0_0 {true; true; y = y + 1}
                         lockManager.lock(0); // Request [y]
                         y = y + 1;
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_0;
                         return true;
-                    case 1:
-                        return false;
                     default:
                         throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
                 }
@@ -1041,14 +997,6 @@ public class Test2 {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM0Thread");
-                    t.start();
-                }
             }
         }
 

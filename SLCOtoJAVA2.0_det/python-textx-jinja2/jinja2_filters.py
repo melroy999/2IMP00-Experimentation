@@ -138,7 +138,7 @@ def render_state_machine(model, add_counter, c):
     )
 
 
-def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
+def construct_decision_code(model, sm, requires_lock=True, include_guard=True, include_comment=True):
     model_class = model.__class__.__name__
     if model_class == "TransitionBlock":
         if not model.starts_with_composite:
@@ -157,7 +157,7 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
             release_locks=model.release_locks,
             _c=sm.parent_class,
             always_fails=model.always_fails,
-            comment=model.comment
+            comment=model.comment if include_comment else None
         )
     elif model_class == "Composite":
         guard = get_instruction(model.guard) if not model.guard.is_trivially_satisfiable and include_guard else None
@@ -210,7 +210,11 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
     elif model_class == "DeterministicIfThenElseBlock":
         # Order the choices such that the generated code is always the same.
         choices = [
-            (construct_decision_code(choice, sm), get_guard_statement(choice)) for choice in model.choice_blocks
+            (
+                construct_decision_code(choice, sm, include_comment=False),
+                get_guard_statement(choice),
+                choice.comment if choice.__class__.__name__ == "TransitionBlock" else None
+            ) for choice in model.choice_blocks
         ]
         choices.sort(key=lambda v: v[0])
 
@@ -223,14 +227,20 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.
-        choices = [(target, construct_decision_code(choice, sm)) for (target, choice) in model.choice_blocks]
+        choices = [
+            (
+                target,
+                construct_decision_code(choice, sm, include_comment=False),
+                choice.comment if choice.__class__.__name__ == "TransitionBlock" else None
+            ) for (target, choice) in model.choice_blocks
+        ]
         choices.sort(key=lambda v: v[1])
 
         for i in range(0, len(choices) - 1):
             # Check if the next execution code is equivalent to the current one.
             # If so, set the current execution code to empty string, to avoid duplicates.
             if choices[i][1] == choices[i + 1][1]:
-                choices[i] = (choices[i][0], "")
+                choices[i] = (choices[i][0], "", choices[i][2])
 
         subject_expression = get_instruction(model.subject_expression)
         default_decision_tree = construct_decision_code(model.default_decision_tree, sm)
