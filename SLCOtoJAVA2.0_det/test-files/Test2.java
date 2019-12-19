@@ -95,12 +95,12 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                // from SM0_0 to SM0_1 {false} (eliminated: trivially unsatisfiable)
+                // from SM0_0 to SM0_1 {false} (trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_0 to SM0_1 {tau} (functional duplicate of case below)
+                        // from SM0_0 to SM0_1 {tau} (trivially satisfiable) (functional duplicate of case below)
                     case 1:
-                        // from SM0_0 to SM0_1 {true}
+                        // from SM0_0 to SM0_1 {true} (trivially satisfiable)
                         currentState = SM0Thread.States.SM0_1;
                         return true;
                     default:
@@ -109,12 +109,12 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {false} (eliminated: trivially unsatisfiable)
+                // from SM0_1 to SM0_0 {false} (trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_1 to SM0_0 {tau} (functional duplicate of case below)
+                        // from SM0_1 to SM0_0 {tau} (trivially satisfiable) (functional duplicate of case below)
                     case 1:
-                        // from SM0_1 to SM0_0 {true}
+                        // from SM0_1 to SM0_0 {true} (trivially satisfiable)
                         currentState = SM0Thread.States.SM0_0;
                         return true;
                     default:
@@ -204,7 +204,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_1() {
-                // from SM1_1 to SM1_0 {x[0] = x[0] + 1}
+                // from SM1_1 to SM1_0 {x[0] = x[0] + 1} (trivially satisfiable)
                 x[0] = x[0] + 1;
                 currentState = SM1Thread.States.SM1_0;
                 return true;
@@ -328,7 +328,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {x[y + 1] = x[y + 1] + 1}
+                // from SM0_1 to SM0_0 {x[y + 1] = x[y + 1] + 1} (trivially satisfiable)
                 lockManager.lock(1 + y + 1, 0); // Request [x[y + 1], y]
                 x[y + 1] = x[y + 1] + 1;
                 lockManager.unlock(1 + y + 1, 0); // Release [x[y + 1], y]
@@ -463,7 +463,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {y = y ** 2}
+                // from SM0_1 to SM0_0 {y = y ** 2} (trivially satisfiable)
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -568,7 +568,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_1() {
-                // from SM1_1 to SM1_0 {y = y ** 2}
+                // from SM1_1 to SM1_0 {y = y ** 2} (trivially satisfiable)
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -691,7 +691,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {y = y ** 2}
+                // from SM0_1 to SM0_0 {y = y ** 2} (trivially satisfiable)
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -806,7 +806,7 @@ public class Test2 {
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
                             return true;
-                        } else if(y == 0 || y <= 0) { 
+                        } else if(y <= 0 || y == 0) { 
                             switch(random.nextInt(2)) {
                                 case 0:
                                     if (y <= 0) { // from SM0_0 to SM0_1 {y <= 0} 
@@ -845,7 +845,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {tau}
+                // from SM0_1 to SM0_0 {tau} (trivially satisfiable)
                 currentState = SM0Thread.States.SM0_0;
                 return true;
             }
@@ -985,14 +985,14 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {false; true; y = y + 1} (eliminated: trivially unsatisfiable)
-                // from SM0_1 to SM0_0 {false; false; y = y + 1} (eliminated: trivially unsatisfiable)
+                // from SM0_1 to SM0_0 {false; true; y = y + 1} (trivially unsatisfiable)
+                // from SM0_1 to SM0_0 {false; false; y = y + 1} (trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_1 to SM0_0 {true; false; y = y + 1}
+                        // from SM0_1 to SM0_0 {true; false; y = y + 1} (trivially satisfiable)
                         return false;
                     case 1:
-                        // from SM0_1 to SM0_0 {true; true; y = y + 1}
+                        // from SM0_1 to SM0_0 {true; true; y = y + 1} (trivially satisfiable)
                         lockManager.lock(0); // Request [y]
                         y = y + 1;
                         lockManager.unlock(0); // Release [y]

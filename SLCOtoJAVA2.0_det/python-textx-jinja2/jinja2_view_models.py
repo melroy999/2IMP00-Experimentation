@@ -96,7 +96,7 @@ class TransitionBlock:
         self.always_fails = t.always_fails
 
         # Which traceability comment would we like to add?
-        self.comment = t.original_string
+        self.comment = t.comment_string
 
         # If the guard is trivially satisfiable, no lock needs to be instantiated for the guard.
         # Recall that composites with a true guard will never be a guard of a transition.

@@ -47,7 +47,7 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     private boolean exec_{{s}}() {
         {% for statement in model.adjacency_list[s] %}
         {% if statement.is_trivially_unsatisfiable %}
-        // {{statement.original_string}} (eliminated: trivially unsatisfiable)
+        // {{statement.comment_string}}
         {% endif %}
         {% endfor %}
         {% if model.groupings[s] %}

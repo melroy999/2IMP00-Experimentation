@@ -143,6 +143,11 @@ def propagate_simplification(model, variables=None):
         model.is_trivially_satisfiable = model.guard.is_trivially_satisfiable
         model.is_trivially_unsatisfiable = model.guard.is_trivially_unsatisfiable
 
+        if model.is_trivially_satisfiable:
+            model.comment_string += " (trivially satisfiable)"
+        if model.is_trivially_unsatisfiable:
+            model.comment_string += " (trivially unsatisfiable)"
+
         # If the guard is a composite, and it is trivially satisfiable, split.
         if model.guard.__class__.__name__ == "Composite" and model.is_trivially_satisfiable:
             model.statements = [model.guard] + model.statements
@@ -244,7 +249,7 @@ def transform_transition(t):
     t.source = t.source.name
     t.target = t.target.name
     t.always_fails = False
-    t.original_string = object_to_comment(t)
+    t.comment_string = object_to_comment(t)
 
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
     t.statements = [transform_statement(_s) for _s in t.statements]
@@ -270,7 +275,7 @@ def transform_transition(t):
     t.guard_expression = t.guard.guard if class_name == "Composite" else t.guard
 
     # Make a human readable format of the transition.
-    type(t).__repr__ = lambda self: self.original_string
+    type(t).__repr__ = lambda self: self.comment_string
     # type(t).__repr__ = lambda self: "from %s to %s {%s}" % (
     #     self.source, self.target, "; ".join(v.__repr__() for v in [self.guard] + self.statements)
     # )
