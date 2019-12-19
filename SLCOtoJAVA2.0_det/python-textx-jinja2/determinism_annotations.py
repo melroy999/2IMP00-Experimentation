@@ -80,7 +80,7 @@ def dissect_overlapping_transition_chain(transitions, variables, truth_matrices)
     return (Decision.N_DET, groupings) if len(groupings) > 1 else groupings[0]
 
 
-def group_overlapping_transitions(transitions, variables, truth_matrices):
+def group_overlapping_transitions(transitions, variables, and_truth_matrix):
     """Divide the transitions into groups, based on the equality measure"""
     if len(transitions) == 1:
         return transitions[0]
@@ -93,7 +93,7 @@ def group_overlapping_transitions(transitions, variables, truth_matrices):
     for t in transitions:
         if t not in processed_transitions:
             # Find all transitions that have an equality relation with this _t.
-            queue.update([t2 for t2 in transitions if truth_matrices["and"][t][t2]])
+            queue.update([t2 for t2 in transitions if and_truth_matrix[t][t2]])
 
             current_group_transitions = []
 
@@ -105,7 +105,7 @@ def group_overlapping_transitions(transitions, variables, truth_matrices):
                     current_group_transitions += [t2]
 
                     # Find all transitions that are related to _t.
-                    queue.update([t3 for t3 in transitions if truth_matrices["and"][t2][t3]])
+                    queue.update([t3 for t3 in transitions if and_truth_matrix[t2][t3]])
 
                     # We do not want to visit the queue head again.
                     processed_transitions.add(t2)
@@ -113,7 +113,7 @@ def group_overlapping_transitions(transitions, variables, truth_matrices):
             if len(current_group_transitions) > 0:
                 # Can the found list of groupings be dissected further?
                 sub_groupings = dissect_overlapping_transition_chain(
-                    current_group_transitions, variables, truth_matrices
+                    current_group_transitions, variables, and_truth_matrix
                 )
 
                 # Add the group to the list of groupings.
@@ -123,7 +123,7 @@ def group_overlapping_transitions(transitions, variables, truth_matrices):
     return (Decision.DET, groupings) if len(groupings) > 1 else groupings[0]
 
 
-def find_deterministic_groups(transitions, _vars, truth_matrices):
+def find_deterministic_groups(transitions, _vars, and_truth_matrix):
     """Find groups that are deterministic in regards to one another"""
     # Check whether we have a list of transitions to dissect.
     if len(transitions) <= 1:
@@ -133,21 +133,21 @@ def find_deterministic_groups(transitions, _vars, truth_matrices):
     # Keep in mind that the truth table has all transitions--only select those that we are examining.
     invariably_overlapping_transitions = [
         t for t in transitions if all(
-            truth_matrices["and"][t][t2] for t2 in transitions
+            and_truth_matrix[t][t2] for t2 in transitions
         )
     ]
 
     # If we have several invariably active transitions, but not all transitions are, divide and conquer.
     if len(invariably_overlapping_transitions) == 0:
         # Dissect the group of transitions and find a way to split if possible.
-        return group_overlapping_transitions(transitions, _vars, truth_matrices)
+        return group_overlapping_transitions(transitions, _vars, and_truth_matrix)
     else:
         # Find the transitions that are not invariably active.
         remaining_transitions = [t for t in transitions if t not in invariably_overlapping_transitions]
 
         # Recursively solve for the non invariably overlapping transitions.
         if len(remaining_transitions) > 0:
-            remaining_groupings = [find_deterministic_groups(remaining_transitions, _vars, truth_matrices)]
+            remaining_groupings = [find_deterministic_groups(remaining_transitions, _vars, and_truth_matrix)]
         else:
             remaining_groupings = []
 
@@ -183,33 +183,18 @@ def format_decision_group_tree(tree, trivially_satisfiable_transitions):
         return choice_type, compressed_members
 
 
-def calculate_truth_matrices(transitions, variables):
+def calculate_and_truth_matrix(transitions, variables):
     """Calculate the truth matrices for the transitions"""
-    truth_matrices = {}
-    for operator, for_all in [("and", False), ("xor", True), ("=>", True)]:
-        if operator == "=>":
-            # Implication is non-symmetric, so we need to test both directions.
-            truth_matrices[operator] = {
-                t: {
-                    t2: z3_opr_check(
-                        operator, t.guard_expression.smt, t2.guard_expression.smt, variables, for_all
-                    ) for t2 in transitions
-                } for t in transitions
-            }
-        else:
-            # We don't have to check both directions, since XOR and AND are symmetric.
-            truth_matrices[operator] = {}
-            for t in transitions:
-                truth_matrices[operator][t] = {}
-                for t2 in transitions:
-                    truth_evaluation = z3_opr_check(
-                        operator, t.guard_expression.smt, t2.guard_expression.smt, variables, for_all
-                    )
-                    truth_matrices[operator][t][t2] = truth_evaluation
-                    if t == t2:
-                        break
-                    truth_matrices[operator][t2][t] = truth_evaluation
-    return truth_matrices
+    truth_matrix = {}
+    for t in transitions:
+        truth_matrix[t] = {}
+        for t2 in transitions:
+            truth_evaluation = z3_opr_check("and", t.guard_expression.smt, t2.guard_expression.smt, variables, False)
+            truth_matrix[t][t2] = truth_evaluation
+            if t == t2:
+                break
+            truth_matrix[t2][t] = truth_evaluation
+    return truth_matrix
 
 
 def add_determinism_annotations(model):
@@ -231,11 +216,11 @@ def add_determinism_annotations(model):
                     remaining_transitions = [t for t in transitions if t not in solved_transitions]
 
                     # Create the truth matrices for the AND, XOR and implication operators.
-                    truth_matrices = calculate_truth_matrices(remaining_transitions, variables)
+                    and_truth_matrix = calculate_and_truth_matrix(remaining_transitions, variables)
 
                     sub_groupings = []
                     if len(remaining_transitions) > 0:
-                        sub_groupings += [find_deterministic_groups(remaining_transitions, variables, truth_matrices)]
+                        sub_groupings += [find_deterministic_groups(remaining_transitions, variables, and_truth_matrix)]
 
                     choices = trivially_satisfiable + sub_groupings
                     if len(choices) == 0:

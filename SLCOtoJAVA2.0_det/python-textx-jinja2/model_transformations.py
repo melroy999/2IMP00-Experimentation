@@ -28,6 +28,40 @@ def calculate_lock_ids(c):
     c.number_of_class_variables = count
 
 
+def object_to_comment(m):
+    model_class = m.__class__.__name__
+
+    if model_class == "Transition":
+        return "from %s to %s {%s}" % (m.source, m.target, "; ".join(object_to_comment(v) for v in m.statements))
+    elif model_class == "Assignment":
+        var_str = m.left.var.name + ("[" + object_to_comment(m.left.index) + "]" if m.left.index is not None else "")
+        exp_str = object_to_comment(m.right)
+        return "%s = %s" % (var_str, exp_str)
+    elif model_class == "Composite":
+        statement_strings = [object_to_comment(m.guard)]
+        statement_strings += [object_to_comment(s) for s in m.assignments]
+        return "[%s]" % "; ".join(statement_strings)
+    elif model_class in ["Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
+        if m.op == "":
+            return object_to_comment(m.left)
+        else:
+            return "%s %s %s" % (object_to_comment(m.left), m.op, object_to_comment(m.right))
+    elif model_class == "Primary":
+        if m.value is not None:
+            exp_str = str(m.value).lower()
+        elif m.ref is not None:
+            exp_str = m.ref.ref + ("[%s]" % object_to_comment(m.ref.index) if m.ref.index is not None else "")
+        else:
+            exp_str = "(%s)" % object_to_comment(m.body)
+        return ("not (%s)" if m.sign == "not" else m.sign + "%s") % exp_str
+    elif model_class == "VariableRef":
+        return m.var.name + ("[%s]" % object_to_comment(m.index) if m.index is not None else "")
+    elif model_class == "ActionRef":
+        return m.act.name
+    else:
+        return "[c]NYI"
+
+
 #
 #
 #
@@ -209,10 +243,11 @@ def transform_transition(t):
     """Transform the transition such that it provides all the data required for the code conversion"""
     t.source = t.source.name
     t.target = t.target.name
-    t.statements = [transform_statement(_s) for _s in t.statements]
     t.always_fails = False
+    t.original_string = object_to_comment(t)
 
     # We determine whether a transition is guarded by looking whether the first statement is an expression.
+    t.statements = [transform_statement(_s) for _s in t.statements]
     first_statement = t.statements[0]
 
     # Convert a tau ActionRef to a true statement.
@@ -235,9 +270,11 @@ def transform_transition(t):
     t.guard_expression = t.guard.guard if class_name == "Composite" else t.guard
 
     # Make a human readable format of the transition.
-    type(t).__repr__ = lambda self: "[%s -> %s] %s" % (
-        self.source, self.target, "; ".join(v.__repr__() for v in [self.guard] + self.statements)
-    )
+    type(t).__repr__ = lambda self: self.original_string
+    # type(t).__repr__ = lambda self: "from %s to %s {%s}" % (
+    #     self.source, self.target, "; ".join(v.__repr__() for v in [self.guard] + self.statements)
+    # )
+
     return t
 
 
@@ -255,7 +292,9 @@ def transform_state_machine(sm, c):
         ] for s in sm.states
     }
     for v in sm.variables:
-        type(v).__repr__ = lambda v: "%s (%s)" % (v.name, (v.type.base if v.type.size == 0 else "%s[%s]" % (v.type.base, v.type.size)))
+        type(v).__repr__ = lambda v: "%s (%s)" % (
+            v.name, (v.type.base if v.type.size == 0 else "%s[%s]" % (v.type.base, v.type.size))
+        )
 
 
 def transform_model(model):
@@ -268,7 +307,9 @@ def transform_model(model):
 
         # Give the variables a readable representation.
         for v in c.variables:
-            type(v).__repr__ = lambda v: "%s (%s)" % (v.name, (v.type.base if v.type.size == 0 else "%s[%s]" % (v.type.base, v.type.size)))
+            type(v).__repr__ = lambda v: "%s (%s)" % (
+                v.name, (v.type.base if v.type.size == 0 else "%s[%s]" % (v.type.base, v.type.size))
+            )
 
     # Check which variables have been used in the model and find all variables that need to be locked.
     for c in model.classes:

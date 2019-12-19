@@ -3,7 +3,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
 
 // main class
-@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused"})
+@SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused", "SpellCheckingInspection"})
 public class TestSimple {
     // The objects in the model.
     private final SLCO_Class[] objects;
@@ -63,8 +63,6 @@ public class TestSimple {
         }
 
         class SM1Thread extends Thread implements P_SM1Thread_States {
-            private Thread t;
-
             // Current state
             private SM1Thread.States currentState;
 
@@ -92,13 +90,15 @@ public class TestSimple {
             }
 
             private boolean exec_SM1_0() {
-                if (y > 10) {
-                    x[0] = 0;
-                    y = 0;
+                if (y <= 10) {
+                    // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}
+                    y = y + 1;
                     currentState = SM1Thread.States.SM1_1;
                     return true;
-                } else if(y <= 10) {
-                    y = y + 1;
+                } else if(y > 10) {
+                    // from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]}
+                    x[0] = 0;
+                    y = 0;
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 }
@@ -106,6 +106,7 @@ public class TestSimple {
             }
 
             private boolean exec_SM1_1() {
+                // from SM1_1 to SM1_0 {x[0] = x[0] + 1}
                 x[0] = x[0] + 1;
                 currentState = SM1Thread.States.SM1_0;
                 return true;
@@ -136,14 +137,6 @@ public class TestSimple {
             // Run method
             public void run() {
                 exec();
-            }
-
-            // Start method
-            public void start() {
-                if (t == null) {
-                    t = new Thread(this, "SM1Thread");
-                    t.start();
-                }
             }
         }
 

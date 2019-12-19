@@ -156,7 +156,8 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True):
             state_machine_name=sm.name,
             release_locks=model.release_locks,
             _c=sm.parent_class,
-            always_fails=model.always_fails
+            always_fails=model.always_fails,
+            comment=model.comment
         )
     elif model_class == "Composite":
         guard = get_instruction(model.guard) if not model.guard.is_trivially_satisfiable and include_guard else None
