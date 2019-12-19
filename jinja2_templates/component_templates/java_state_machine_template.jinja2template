@@ -15,6 +15,9 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     // Counter of main while-loop iterations
     long transition_counter;
 
+    // Counter for successful iterations
+    long successful_transition_counter;
+
     {% endif %}
     {% if model.variables | length > 0 %}
     // Thread local variables
@@ -42,12 +45,17 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     {# Separate execution methods for each state. #}
     {% for s in model.states %}
     private boolean exec_{{s}}() {
+        {% for statement in model.adjacency_list[s] %}
+        {% if statement.is_trivially_unsatisfiable %}
+        // {{statement.original_string}} (eliminated: trivially unsatisfiable)
+        {% endif %}
+        {% endfor %}
         {% if model.groupings[s] %}
         {{model.groupings[s] | get_decision_structure(model) | indent(8, False)}}
         {% endif %}
         {% if model.groupings[s] == none %}
-        // There are no transitions to be made, implying a successful self-loop.
-        return true;
+        // There are no transitions to be made.
+        return false;
         {% endif %}
     }
 
@@ -78,8 +86,9 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
             {% if add_counter %}
 
             // Increment counter
+            transition_counter++;
             if(result) {
-                transition_counter++;
+                successful_transition_counter++;
             }
             {% endif %}
         }

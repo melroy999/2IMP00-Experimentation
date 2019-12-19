@@ -72,6 +72,9 @@ public class TestSimple {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // Thread local variables
             private int y;
             private int[] x;
@@ -126,8 +129,9 @@ public class TestSimple {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }

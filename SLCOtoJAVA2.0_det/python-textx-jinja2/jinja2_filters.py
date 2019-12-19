@@ -89,6 +89,9 @@ def get_instruction(m):
             return get_instruction(m.left)
         elif m.op == "**":
             return "(int) Math.pow(%s, %s)" % (get_instruction(m.left), get_instruction(m.right))
+        elif m.op == "%":
+            # The % operator in Java is the remainder operator. We want a modulo operation instead.
+            return "Math.floorMod(%s, %s)" % (get_instruction(m.left), get_instruction(m.right))
         else:
             return "%s %s %s" % (get_instruction(m.left), java_operator_mappings[m.op], get_instruction(m.right))
     elif model_class == "Primary":
@@ -185,17 +188,30 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
         return "// Execute action [%s]\n" % model.act.name
     elif model_class == "NonDeterministicBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.
-        choices = [construct_decision_code(choice, sm) for choice in model.choice_blocks]
-        choices.sort()
+        choices = [(
+            construct_decision_code(choice, sm),
+            choice.comment if choice.__class__.__name__ == "TransitionBlock" else None
+        ) for choice in model.choice_blocks]
+        choices.sort(key=lambda v: v[0])
 
         for i in range(0, len(choices) - 1):
             # Check if the next execution code is equivalent to the current one.
             # If so, set the current execution code to empty string, to avoid duplicates.
-            if choices[i] == choices[i + 1]:
-                choices[i] = ""
+            # Note that there is a comment that will likely differ--filter the comment out if appropriate.
+            current_choice = choices[i][0]
+            if choices[i][1] is not None:
+                current_choice = current_choice.replace(choices[i][1], "")
 
-        # Filter out all choices that are an empty string.
-        choices = [choice for choice in choices if choice != ""]
+            next_choice = choices[i + 1][0]
+            if choices[i + 1][1] is not None:
+                next_choice = next_choice.replace(choices[i + 1][1], "")
+
+            if current_choice == next_choice:
+                # We still want the traceability comment if applicable.
+                choices[i] = ("// %s (functional duplicate of case below)" % choices[i][1], choices[i][1])
+
+        # Remove the choice comment from every choice.
+        choices = [choice[0] for choice in choices]
 
         # If only one choice remains, there is no reason to include an entire block.
         if len(choices) == 1:
@@ -240,7 +256,7 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
             # Check if the next execution code is equivalent to the current one.
             # If so, set the current execution code to empty string, to avoid duplicates.
             if choices[i][1] == choices[i + 1][1]:
-                choices[i] = (choices[i][0], "", choices[i][2])
+                choices[i] = (choices[i][0], "", "%s (functional duplicate of case below)" % choices[i][2])
 
         subject_expression = get_instruction(model.subject_expression)
         default_decision_tree = construct_decision_code(model.default_decision_tree, sm)

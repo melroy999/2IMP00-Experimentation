@@ -76,6 +76,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // Thread local variables
             private int[] x;
 
@@ -92,11 +95,10 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
+                // from SM0_0 to SM0_1 {false} (eliminated: trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_0 to SM0_1 {tau}
-                        currentState = SM0Thread.States.SM0_1;
-                        return true;
+                        // from SM0_0 to SM0_1 {tau} (functional duplicate of case below)
                     case 1:
                         // from SM0_0 to SM0_1 {true}
                         currentState = SM0Thread.States.SM0_1;
@@ -107,11 +109,10 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
+                // from SM0_1 to SM0_0 {false} (eliminated: trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_1 to SM0_0 {tau}
-                        currentState = SM0Thread.States.SM0_0;
-                        return true;
+                        // from SM0_1 to SM0_0 {tau} (functional duplicate of case below)
                     case 1:
                         // from SM0_1 to SM0_0 {true}
                         currentState = SM0Thread.States.SM0_0;
@@ -137,8 +138,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -164,6 +166,9 @@ public class Test2 {
 
             // Counter of main while-loop iterations
             long transition_counter;
+
+            // Counter for successful iterations
+            long successful_transition_counter;
 
             // Thread local variables
             private int[] x;
@@ -221,8 +226,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -289,6 +295,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // The lock manager.
             private final LockManager lockManager;
 
@@ -343,8 +352,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -409,6 +419,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // The lock manager.
             private final LockManager lockManager;
 
@@ -422,7 +435,7 @@ public class Test2 {
 
             private boolean exec_SM0_0() {
                 lockManager.lock(0); // Acquire [y]
-                switch(y % 4) {
+                switch(Math.floorMod(y, 4)) {
                     case 2: // from SM0_0 to SM0_1 {[y % 4 = 2; y = y + 1]} 
                         y = y + 1;
                         lockManager.unlock(0); // Release [y]
@@ -474,8 +487,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -502,6 +516,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // The lock manager.
             private final LockManager lockManager;
 
@@ -515,7 +532,7 @@ public class Test2 {
 
             private boolean exec_SM1_0() {
                 lockManager.lock(0); // Acquire [y]
-                switch(y % 4) {
+                switch(Math.floorMod(y, 4)) {
                     case 2: // from SM1_0 to SM1_1 {y % 4 = 2; y = y + 1} 
                         lockManager.unlock(0); // Release [y]
                         lockManager.lock(0); // Request [y]
@@ -575,8 +592,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -642,6 +660,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // The lock manager.
             private final LockManager lockManager;
 
@@ -655,10 +676,10 @@ public class Test2 {
 
             private boolean exec_SM0_0() {
                 lockManager.lock(0); // Acquire [y]
-                switch(y % 4) {
-                    case 0: // from SM0_0 to SM0_1 {y % 4 = 0} 
-                    case 1: // from SM0_0 to SM0_1 {y % 4 = 1} 
-                    case 2: // from SM0_0 to SM0_1 {y % 4 = 2} 
+                switch(Math.floorMod(y, 4)) {
+                    case 0: // from SM0_0 to SM0_1 {y % 4 = 0} (functional duplicate of case below) 
+                    case 1: // from SM0_0 to SM0_1 {y % 4 = 1} (functional duplicate of case below) 
+                    case 2: // from SM0_0 to SM0_1 {y % 4 = 2} (functional duplicate of case below) 
                     case 3: // from SM0_0 to SM0_1 {y % 4 = 3} 
                         lockManager.unlock(0); // Release [y]
                         currentState = SM0Thread.States.SM0_1;
@@ -694,8 +715,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -758,6 +780,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // The lock manager.
             private final LockManager lockManager;
 
@@ -781,7 +806,7 @@ public class Test2 {
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
                             return true;
-                        } else if(y <= 0 || y == 0) { 
+                        } else if(y == 0 || y <= 0) { 
                             switch(random.nextInt(2)) {
                                 case 0:
                                     if (y <= 0) { // from SM0_0 to SM0_1 {y <= 0} 
@@ -841,8 +866,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
@@ -905,6 +931,9 @@ public class Test2 {
             // Counter of main while-loop iterations
             long transition_counter;
 
+            // Counter for successful iterations
+            long successful_transition_counter;
+
             // The lock manager.
             private final LockManager lockManager;
 
@@ -956,6 +985,8 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
+                // from SM0_1 to SM0_0 {false; true; y = y + 1} (eliminated: trivially unsatisfiable)
+                // from SM0_1 to SM0_0 {false; false; y = y + 1} (eliminated: trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
                         // from SM0_1 to SM0_0 {true; false; y = y + 1}
@@ -988,8 +1019,9 @@ public class Test2 {
                     }
 
                     // Increment counter
+                    transition_counter++;
                     if(result) {
-                        transition_counter++;
+                        successful_transition_counter++;
                     }
                 }
             }
