@@ -120,9 +120,9 @@ public class TestIndex {
                         return true;
                     case 1:
                         // from SM1_1 to SM1_0 {x[i] = x[x[i + 1]] + 1}
-                        lockManager.lock(0, 2 + i, 2 + x[i + 1]); // Request [i, x[i], x[x[i + 1]]]
+                        lockManager.lock(0, 2 + i, 2 + i + 1, 2 + x[i + 1]); // Request [i, x[i], x[i + 1], x[x[i + 1]]]
                         x[i] = x[x[i + 1]] + 1;
-                        lockManager.unlock(0, 2 + i, 2 + x[i + 1]); // Release [i, x[i], x[x[i + 1]]]
+                        lockManager.unlock(0, 2 + i, 2 + i + 1, 2 + x[i + 1]); // Release [i, x[i], x[i + 1], x[x[i + 1]]]
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     default:
@@ -225,23 +225,23 @@ public class TestIndex {
                 switch(random.nextInt(3)) {
                     case 0:
                         // from SM1_0 to SM1_0 {i[0] = i[y[0]]}
-                        lockManager.lock(0, y[0]); // Request [i[0], i[y[0]]]
+                        lockManager.lock(0, y[0], 4); // Request [i[0], i[y[0]], y[0]]
                         i[0] = i[y[0]];
-                        lockManager.unlock(0, y[0]); // Release [i[0], i[y[0]]]
+                        lockManager.unlock(0, y[0], 4); // Release [i[0], i[y[0]], y[0]]
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 1:
                         // from SM1_0 to SM1_0 {x[0] = x[i[0]]}
-                        lockManager.lock(2, 2 + i[0]); // Request [x[0], x[i[0]]]
+                        lockManager.lock(0, 2, 2 + i[0]); // Request [i[0], x[0], x[i[0]]]
                         x[0] = x[i[0]];
-                        lockManager.unlock(2, 2 + i[0]); // Release [x[0], x[i[0]]]
+                        lockManager.unlock(0, 2, 2 + i[0]); // Release [i[0], x[0], x[i[0]]]
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 2:
                         // from SM1_0 to SM1_0 {y[0] = y[x[0]]}
-                        lockManager.lock(4, 4 + x[0]); // Request [y[0], y[x[0]]]
+                        lockManager.lock(2, 4, 4 + x[0]); // Request [x[0], y[0], y[x[0]]]
                         y[0] = y[x[0]];
-                        lockManager.unlock(4, 4 + x[0]); // Release [y[0], y[x[0]]]
+                        lockManager.unlock(2, 4, 4 + x[0]); // Release [x[0], y[0], y[x[0]]]
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     default:

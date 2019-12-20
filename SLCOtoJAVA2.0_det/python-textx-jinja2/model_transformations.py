@@ -3,6 +3,9 @@ from range_analysis import get_ranges
 from smt_functions import z3_truth_check, to_simple_ast
 
 # An expression that represents an object that is always true, used as replacement for empty guards.
+from variable_locking import assign_lock_ids_to_class_variables, construct_valid_lock_order, propagate_used_variables, \
+    propagate_lock_variables
+
 true_expression = type("Expression", (object,), {
     "left": type("Primary", (object,), {"value": True, "sign": "", "body": None, "ref": None})(),
     "op": "",
@@ -52,62 +55,6 @@ def object_to_comment(m):
 #
 #
 #
-
-
-def gather_used_variables(model):
-    """Gather the variables that are used within the statements"""
-    class_name = model.__class__.__name__
-    if class_name in ["Assignment", "Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
-        if model.right is None:
-            return gather_used_variables(model.left)
-        else:
-            return gather_used_variables(model.left).union(gather_used_variables(model.right))
-    elif class_name == "ExpressionRef":
-        if model.index is None:
-            return {(model.ref, None)}
-        else:
-            return {(model.ref, get_instruction(model.index))}
-    elif class_name == "VariableRef":
-        if model.index is None:
-            return {(model.var.name, None)}
-        else:
-            # The index might also hide a variable within it. Account for these as well.
-            return {(model.var.name, get_instruction(model.index))} | gather_used_variables(model.index)
-    elif class_name == "Primary" and model.ref is not None:
-        return gather_used_variables(model.ref)
-    else:
-        return set([])
-
-
-def propagate_used_variables(model):
-    """Propagate all the used variables throughout the model"""
-    class_name = model.__class__.__name__
-    if class_name == "Class":
-        model.used_variables = set([])
-        for sm in model.statemachines:
-            model.used_variables |= propagate_used_variables(sm)
-    elif class_name == "StateMachine":
-        model.used_variables = set([])
-        model.used_variables_per_state = {_s: set([]) for _s in model.states}
-        for t in model.transitions:
-            used_variables = propagate_used_variables(t)
-            model.used_variables |= used_variables
-            model.used_variables_per_state[t.source] |= used_variables
-    elif class_name == "Transition":
-        model.used_variables = propagate_used_variables(model.guard)
-        for s in model.statements:
-            model.used_variables |= propagate_used_variables(s)
-    elif class_name == "Composite":
-        model.used_variables = propagate_used_variables(model.guard)
-        for a in model.assignments:
-            model.used_variables |= propagate_used_variables(a)
-    elif class_name in ["Assignment", "Expression"]:
-        model.used_variables = gather_used_variables(model)
-    else:
-        model.used_variables = set([])
-
-    # Always return a copy such that the original is never altered accidentally.
-    return set(model.used_variables)
 
 
 def propagate_simplification(model, variables=None):
@@ -173,156 +120,6 @@ def propagate_simplification(model, variables=None):
         model.is_trivially_unsatisfiable = not z3_truth_check(model.smt, variables, False)
 
 
-def propagate_lock_variables(model, class_variables):
-    """For each Composite/Assignment/Expression, add the variables that have to be locked as a field"""
-    class_name = model.__class__.__name__
-    if class_name == "Class":
-        for sm in model.statemachines:
-            propagate_lock_variables(sm, class_variables)
-        return
-    elif class_name == "StateMachine":
-        for t in model.transitions:
-            propagate_lock_variables(t, class_variables)
-        return
-    elif class_name == "Transition":
-        propagate_lock_variables(model.guard, class_variables)
-        for s in model.statements:
-            propagate_lock_variables(s, class_variables)
-        return
-    elif class_name == "Composite":
-        model.lock_variables = propagate_lock_variables(model.guard, class_variables)
-        for a in model.assignments:
-            model.lock_variables |= propagate_lock_variables(a, class_variables)
-    elif class_name == "Expression":
-        # Expressions can be trivially satisfiable/unsatisfiable. If so, we don't need to lock.
-        model.lock_variables = set([])
-        if not model.is_trivially_satisfiable and not model.is_trivially_unsatisfiable:
-            model.lock_variables |= {v for v in model.used_variables if v[0] in class_variables}
-    elif class_name == "Assignment":
-        model.lock_variables = {v for v in model.used_variables if v[0] in class_variables}
-    else:
-        model.lock_variables = set([])
-
-    # Always return a copy such that the original is never altered accidentally.
-    return set(model.lock_variables)
-
-
-class Node:
-    def __init__(self, key):
-        self.predecessors = set([])
-        self.successors = set([])
-        self.key = key
-        self.max_no_successors = 0
-
-    def __repr__(self):
-        return "%s" % self.key
-
-    def add_successor(self, value):
-        self.successors.add(value)
-        self.max_no_successors = len(self.successors)
-        value.predecessors.add(self)
-
-
-def construct_variable_dependency_graph(model, variable_to_node, variable_stack=None):
-    if variable_stack is None:
-        variable_stack = []
-    if model is None:
-        return
-
-    class_name = model.__class__.__name__
-    if class_name == "Transition":
-        construct_variable_dependency_graph(model.guard, variable_to_node, variable_stack)
-        for s in model.statements:
-            construct_variable_dependency_graph(s, variable_to_node, variable_stack)
-    elif class_name == "Composite":
-        construct_variable_dependency_graph(model.guard, variable_to_node, variable_stack)
-        for a in model.assignments:
-            construct_variable_dependency_graph(a, variable_to_node, variable_stack)
-    elif class_name == "ExpressionRef":
-        if len(variable_stack) > 0 and model.ref in variable_to_node:
-            target_variable = variable_to_node[model.ref]
-            parent_variable = variable_to_node[variable_stack[-1]]
-            parent_variable.add_successor(target_variable)
-        variable_stack.append(model.ref)
-        construct_variable_dependency_graph(model.index, variable_to_node, variable_stack)
-        variable_stack.pop()
-    elif class_name == "VariableRef":
-        if len(variable_stack) > 0 and model.var.name in variable_to_node:
-            target_variable = variable_to_node[model.var.name]
-            parent_variable = variable_to_node[variable_stack[-1]]
-            parent_variable.add_successor(target_variable)
-        variable_stack.append(model.var.name)
-        construct_variable_dependency_graph(model.index, variable_to_node, variable_stack)
-        variable_stack.pop()
-    elif class_name == "Primary":
-        construct_variable_dependency_graph(model.body, variable_to_node, variable_stack)
-        construct_variable_dependency_graph(model.ref, variable_to_node, variable_stack)
-        construct_variable_dependency_graph(model.value, variable_to_node, variable_stack)
-    elif class_name in ["Assignment", "Expression", "ExprPrec1", "ExprPrec2", "ExprPrec3", "ExprPrec4"]:
-        construct_variable_dependency_graph(model.left, variable_to_node, variable_stack)
-        construct_variable_dependency_graph(model.right, variable_to_node, variable_stack)
-
-
-def assign_lock_ids(model):
-    """Assign lock ids to every class variable, using a dependency graph"""
-    # First, create nodes for every variable we are interested in.
-    variable_to_node = {v: Node(v) for v in model.name_to_variable.keys()}
-
-    # Create a dependency graph, where a variable x depends on y if it is used in the index of x.
-    for sm in model.statemachines:
-        for t in sm.transitions:
-            construct_variable_dependency_graph(t, variable_to_node)
-
-    to_assign = set(variable_to_node.keys())
-    counter = 0
-    while len(to_assign) > 0:
-        # Lock ids are granted first to the leaves in the graph.
-        # Continue until no more leaves can be found.
-        while any(len(variable_to_node[v].successors) == 0 for v in to_assign):
-            for v in sorted(list(to_assign), key=lambda _v: (variable_to_node[_v].max_no_successors, _v)):
-                target_node = variable_to_node[v]
-                if len(target_node.successors) == 0:
-                    variable = model.name_to_variable[v]
-                    variable.lock_id = counter
-                    to_assign.discard(v)
-
-                    # Remove the association of the predecessor nodes to the target node.
-                    for node in target_node.predecessors:
-                        node.successors.discard(target_node)
-
-                    # Determine the next id to use.
-                    if variable.type.size > 1:
-                        counter += variable.type.size
-                    else:
-                        counter += 1
-
-        # No more leaves can be found, implying a circular reference.
-        # Process the node that depends on the fewest other nodes first.
-        remaining_variables = sorted(list(to_assign), key=lambda _v: (variable_to_node[_v].max_no_successors, _v))
-        if len(remaining_variables) > 0:
-            v = remaining_variables[0]
-            target_node = variable_to_node[v]
-            variable = model.name_to_variable[v]
-            variable.lock_id = counter
-            to_assign.discard(v)
-
-            # Remove any existing self-references.
-            target_node.predecessors.discard(target_node)
-
-            # Remove the association of the predecessor nodes to the target node.
-            for node in target_node.predecessors:
-                node.successors.discard(target_node)
-                node.predecessors.discard(target_node)
-
-            # Determine the next id to use.
-            if variable.type.size > 1:
-                counter += variable.type.size
-            else:
-                counter += 1
-
-    model.number_of_class_variables = counter
-
-
 #
 #
 #
@@ -379,9 +176,6 @@ def transform_transition(t):
 
     # Make a human readable format of the transition.
     type(t).__repr__ = lambda self: self.comment_string
-    # type(t).__repr__ = lambda self: "from %s to %s {%s}" % (
-    #     self.source, self.target, "; ".join(v.__repr__() for v in [self.guard] + self.statements)
-    # )
 
     return t
 
@@ -420,10 +214,11 @@ def transform_model(model):
 
     # Check which variables have been used in the model and find all variables that need to be locked.
     for c in model.classes:
-        propagate_used_variables(c)
+        assign_lock_ids_to_class_variables(c)
         propagate_simplification(c)
-        assign_lock_ids(c)
+        propagate_used_variables(c)
         propagate_lock_variables(c, c.name_to_variable.keys())
+        construct_valid_lock_order(c)
 
     # Ensure that each class has references to its objects.
     for c in model.classes:
