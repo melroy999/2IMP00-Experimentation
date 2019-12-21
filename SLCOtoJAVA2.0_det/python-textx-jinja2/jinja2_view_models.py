@@ -1,3 +1,6 @@
+from variable_locking import get_locking_phases, correct_dependency_graph, construct_variable_dependency_graph
+
+
 class NonDeterministicBlock:
     """A wrapper for a non-deterministic choice"""
     # Which locks have to be released?
@@ -13,19 +16,25 @@ class NonDeterministicBlock:
         # What is the encapsulating guard expression?
         self.encapsulating_guard_expression = set([])
 
+        # Which statements are used as guards?
+        self.encapsulating_guard_statements = set([])
+
         for block in choice_blocks:
             self.target_locks |= block.target_locks
 
             if block.__class__.__name__ == "TransitionBlock":
                 self.encapsulating_guard_expression.add(block.guard_expression)
+                self.encapsulating_guard_statements.add(block.guard)
             else:
                 self.encapsulating_guard_expression |= block.encapsulating_guard_expression
+                self.encapsulating_guard_statements |= block.encapsulating_guard_statements
 
 
 class DeterministicIfThenElseBlock:
     """A wrapper for a simple deterministic if-then-else block"""
     # Which locks have to be acquired and released?
     acquire_locks = None
+    acquire_locks_phased = None
     release_locks = None
 
     def __init__(self, choice_blocks):
@@ -38,19 +47,25 @@ class DeterministicIfThenElseBlock:
         # What is the encapsulating guard expression?
         self.encapsulating_guard_expression = set([])
 
+        # Which statements are used as guards?
+        self.encapsulating_guard_statements = set([])
+
         for block in choice_blocks:
             self.target_locks |= block.target_locks
 
             if block.__class__.__name__ == "TransitionBlock":
                 self.encapsulating_guard_expression.add(block.guard_expression)
+                self.encapsulating_guard_statements.add(block.guard)
             else:
                 self.encapsulating_guard_expression |= block.encapsulating_guard_expression
+                self.encapsulating_guard_statements |= block.encapsulating_guard_statements
 
 
 class DeterministicCaseDistinctionBlock:
     """A wrapper for a deterministic case distinction block"""
     # Which locks have to be acquired and released?
     acquire_locks = None
+    acquire_locks_phased = None
     release_locks = None
 
     def __init__(self, subject_expression, choice_blocks, default_decision_tree):
@@ -65,21 +80,28 @@ class DeterministicCaseDistinctionBlock:
         # What is the encapsulating guard expression?
         self.encapsulating_guard_expression = set([])
 
+        # Which statements are used as guards?
+        self.encapsulating_guard_statements = set([])
+
         for target, block in choice_blocks:
             self.target_locks |= block.target_locks
 
             if block.__class__.__name__ == "TransitionBlock":
                 self.encapsulating_guard_expression.add(block.guard_expression)
+                self.encapsulating_guard_statements.add(block.guard)
             else:
                 self.encapsulating_guard_expression |= block.encapsulating_guard_expression
+                self.encapsulating_guard_statements |= block.encapsulating_guard_statements
 
         if default_decision_tree is not None:
             self.target_locks |= default_decision_tree.target_locks
 
             if default_decision_tree.__class__.__name__ == "TransitionBlock":
                 self.encapsulating_guard_expression.add(default_decision_tree.guard_expression)
+                self.encapsulating_guard_statements.add(default_decision_tree.guard)
             else:
                 self.encapsulating_guard_expression |= default_decision_tree.encapsulating_guard_expression
+                self.encapsulating_guard_statements |= default_decision_tree.encapsulating_guard_statements
 
 
 class TransitionBlock:
@@ -88,6 +110,7 @@ class TransitionBlock:
     release_locks = None
 
     def __init__(self, t):
+        self.guard = t.guard
         self.guard_expression = t.guard_expression
         self.statements = t.statements
         self.starts_with_composite = t.guard.__class__.__name__ == "Composite"
@@ -177,31 +200,24 @@ def construct_decision_block_tree(model):
                 return DeterministicIfThenElseBlock(case_distinction_blocks + remaining_blocks)
 
 
-def propagate_acquire_locks(model, acquired_locks):
+def propagate_acquire_locks(model, name_to_variable):
     model_class = model.__class__.__name__
-    if model_class == "TransitionBlock":
-        pass
-    elif model_class != "NonDeterministicBlock":
-        # Which locks are not acquired yet?
-        missing_locks = model.target_locks.difference(acquired_locks)
-        if len(missing_locks) > 0:
-            model.acquire_locks = missing_locks
-            acquired_locks |= missing_locks
-
-        if model_class == "DeterministicCaseDistinctionBlock":
-            for _, block in model.choice_blocks:
-                propagate_acquire_locks(block, acquired_locks)
-            if model.default_decision_tree:
-                propagate_acquire_locks(model.default_decision_tree, acquired_locks)
-        else:
-            for block in model.choice_blocks:
-                propagate_acquire_locks(block, acquired_locks)
-
-        if len(missing_locks) > 0:
-            acquired_locks -= missing_locks
-    else:
+    if model_class == "NonDeterministicBlock":
         for block in model.choice_blocks:
-            propagate_acquire_locks(block, acquired_locks)
+            propagate_acquire_locks(block, name_to_variable)
+    elif model_class != "TransitionBlock":
+        # We always acquire the locks at the soonest convenience--further recursion is unnecessary.
+        # Make sure that we acquire the locks in the desired phases.
+        model.acquire_locks = set(model.target_locks)
+        variable_dependency_graph = {}
+        for expression in model.encapsulating_guard_statements:
+            construct_variable_dependency_graph(expression, variable_dependency_graph, set(name_to_variable.keys()))
+
+        # If a node has a dependency on a higher id node, expand and remove all dependencies of the node.
+        correct_dependency_graph(variable_dependency_graph, name_to_variable, None)
+
+        # Break the lock id list into different phases, following the dependency graph.
+        model.acquire_locks_phased = get_locking_phases(variable_dependency_graph, name_to_variable, model.target_locks)
 
 
 def propagate_release_locks(model, acquired_locks):
@@ -235,11 +251,11 @@ def propagate_release_locks(model, acquired_locks):
             acquired_locks |= lock_release_candidates
 
 
-def get_decision_block_tree(model):
+def get_decision_block_tree(model, class_object):
     decision_tree = construct_decision_block_tree(model)
 
     # Ensure that the acquire lock tags are set correctly.
-    propagate_acquire_locks(decision_tree, set([]))
+    propagate_acquire_locks(decision_tree, class_object.name_to_variable)
     propagate_release_locks(decision_tree, set([]))
 
     return decision_tree

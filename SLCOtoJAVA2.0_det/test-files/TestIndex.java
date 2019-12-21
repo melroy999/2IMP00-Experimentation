@@ -57,6 +57,133 @@ public class TestIndex {
     }
 
     // representation of a class
+    private static class M implements SLCO_Class {
+        // The threads
+        private final SM1Thread T_SM1;
+
+        // Global variables
+        private volatile int[] z;
+        private volatile int[] y;
+        private volatile int[] x;
+        private volatile int i;
+
+        interface M_SM1Thread_States {
+            enum States {
+                SM1_0
+            }
+        }
+
+        class SM1Thread extends Thread implements M_SM1Thread_States {
+            // Current state
+            private SM1Thread.States currentState;
+
+            // Random number generator to handle non-determinism
+            private final Random random;
+
+            // Counter of main while-loop iterations
+            long transition_counter;
+
+            // Counter for successful iterations
+            long successful_transition_counter;
+
+            // The lock manager.
+            private final LockManager lockManager;
+
+            // Constructor
+            SM1Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM1Thread.States.SM1_0;
+            }
+
+            private boolean exec_SM1_0() {
+                switch(random.nextInt(3)) {
+                    case 0:
+                        lockManager.lock(0, 1 + i, 3 + x[i]); // Acquire [i, x[i], z[x[i]]]
+                        if (z[x[i]] == 1) { // from SM1_0 to SM1_0 {z[x[i]] = 1} 
+                            lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
+                            currentState = SM1Thread.States.SM1_0;
+                            return true;
+                        }
+                        lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
+                        return false;
+                    case 1:
+                        lockManager.lock(0, 1, 2, 5 + i); // Acquire [i, x[0], x[1], y[i]]
+                        if (x[y[i]] == 1) { // from SM1_0 to SM1_0 {x[y[i]] = 1} 
+                            lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
+                            currentState = SM1Thread.States.SM1_0;
+                            return true;
+                        }
+                        lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
+                        return false;
+                    case 2:
+                        lockManager.lock(0, 5 + z[i], 3 + i); // Acquire [i, y[z[i]], z[i]]
+                        if (y[z[i]] == 1) { // from SM1_0 to SM1_0 {y[z[i]] = 1} 
+                            lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
+                            currentState = SM1Thread.States.SM1_0;
+                            return true;
+                        }
+                        lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
+                        return false;
+                    default:
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                }
+            }
+
+            // Execute method
+            private void exec() {
+                boolean result;
+                while(transition_counter < COUNTER_BOUND) {
+                    result = exec_SM1_0();
+
+                    // Increment counter
+                    transition_counter++;
+                    if(result) {
+                        successful_transition_counter++;
+                    }
+                }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+            }
+
+            // Run method
+            public void run() {
+                exec();
+            }
+        }
+
+        // Constructor for main class
+        M(int i, int[] x, int[] y, int[] z) {
+            // Create a lock manager.
+            LockManager lockManager = new LockManager(7);
+
+            // Instantiate global variables
+            this.z = z;
+            this.y = y;
+            this.x = x;
+            this.i = i;
+            T_SM1 = new M.SM1Thread(lockManager);
+        }
+
+        // Start all threads
+        public void startThreads() {
+            T_SM1.start();
+        }
+
+        // Join all threads
+        public void joinThreads() {
+            while (true) {
+                try {
+                    T_SM1.join();
+                    break;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    // representation of a class
     private static class N implements SLCO_Class {
         // The threads
         private final SM1Thread T_SM1;

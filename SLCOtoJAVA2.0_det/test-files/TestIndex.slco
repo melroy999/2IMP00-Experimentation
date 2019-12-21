@@ -2,6 +2,23 @@ model TestIndex {
     actions a
 
 	classes
+	M {
+      variables Integer[2] z Integer[2] y Integer[2] x Integer i
+	  state machines
+	    SM1 {
+		  initial SM1_0
+		  transitions
+			from SM1_0 to SM1_0 {
+              x[y[i]] = 1
+			}
+			from SM1_0 to SM1_0 {
+              y[z[i]] = 1
+			}
+			from SM1_0 to SM1_0 {
+              z[x[i]] = 1
+			}
+	    }
+	}
 	N {
       variables Integer[2] z Integer[2] y Integer[2] x
 	  state machines

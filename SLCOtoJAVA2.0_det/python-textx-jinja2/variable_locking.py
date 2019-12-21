@@ -1,4 +1,4 @@
-from jinja2_filters import get_instruction
+from java_instruction_conversion import get_instruction
 
 
 def gather_used_variables(model):
@@ -293,7 +293,7 @@ def add_lock_ordering_corrections(model, name_to_variable):
     correct_dependency_graph(variable_dependency_graph, name_to_variable, model.lock_variables)
 
     # Break the lock id list into different phases, following the dependency graph.
-    # model.lock_variable_phases = get_locking_phases(variable_dependency_graph, name_to_variable, model.lock_variables)
+    model.lock_variable_phases = get_locking_phases(variable_dependency_graph, name_to_variable, model.lock_variables)
 
 
 def construct_valid_lock_order(model):
