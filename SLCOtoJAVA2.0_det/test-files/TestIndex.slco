@@ -74,5 +74,22 @@ model TestIndex {
 			}
 	    }
 	}
+	R {
+	  state machines
+	    SM1 {
+		  variables Integer[2] y Integer[2] x Integer[2] i
+		  initial SM1_0
+		  transitions
+			from SM1_0 to SM1_0 {
+              y[0] := y[x[0]]
+			}
+			from SM1_0 to SM1_0 {
+              x[0] := x[i[0]]
+            }
+			from SM1_0 to SM1_0 {
+              i[0] := i[y[0]]
+			}
+	    }
+	}
 	objects p: P()
 }

@@ -13,10 +13,13 @@ if ({{choices[0][1]}}) { {% if choices[0][2] %}// {{choices[0][2]}} {% endif %}
 }{% for i in range(1, choices | length) %} else if({{choices[i][1]}}) { {% if choices[i][2] %}// {{choices[i][2]}} {% endif %}
 
     {{choices[i][0] | indent(4, False)}}
-}{% endfor %}
+}{% endfor %} {% if else_choice %} else { // {{else_choice[2]}}
+    {{else_choice[0] | indent(4, False)}}
+} {% else %}
 
 {% if target_locks %}
 lockManager.unlock({{target_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{target_locks | to_comma_separated_lock_name_list}}]
 {% endif %}
 return false;
+{%- endif %}
 {%- endif %}

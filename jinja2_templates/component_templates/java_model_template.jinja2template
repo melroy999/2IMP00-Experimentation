@@ -33,17 +33,6 @@ public class {{model.name}} {
       		}
 		}
 
-		// Retain specified locks
-		/* void retain(Set<Integer> lock_ids) {
-		    for (int lock_id = 0; lock_id < locks.length; lock_id++) {
-		        if(locks[lock_id].getHoldCount() > 0 && !lock_ids.contains(lock_id)) {
-                    for(int i = 0; i < locks[lock_id].getHoldCount(); i++) {
-                        locks[lock_id].unlock();
-                    }
-                }
-		    }
-		} */
-
 		// Unlock method
 		void unlock(int... lock_ids) {
 		    Arrays.sort(lock_ids);

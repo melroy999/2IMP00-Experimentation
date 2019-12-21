@@ -2,6 +2,7 @@ import jinja2
 
 from java_instruction_conversion import get_instruction
 from jinja2_view_models import get_decision_block_tree
+from smt_functions import z3_truth_check
 
 
 def get_java_type(model, ignore_size):
@@ -182,12 +183,25 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
         ]
         choices.sort(key=lambda v: v[0])
 
+        # Does the combination of all the guards always evaluate to true?
+        else_choice = None
+        if len(model.encapsulating_guard_expression) > 1 and len(model.choice_blocks) > 1:
+            encapsulating_guard_expression = list(model.encapsulating_guard_expression)
+            smt = encapsulating_guard_expression[0].smt
+            for expression in encapsulating_guard_expression[1:]:
+                smt = ("or", smt, expression.smt)
+            variables = {**sm.parent_class.name_to_variable, **sm.name_to_variable}
+            if z3_truth_check(smt, variables):
+                else_choice = choices[-1]
+                choices = choices[:-1]
+
         return java_if_then_else_template.render(
             lock_variable_phases=model.lock_variable_phases,
             release_locks=model.release_locks,
             target_locks=model.target_locks,
             choices=choices,
-            _c=sm.parent_class
+            _c=sm.parent_class,
+            else_choice=else_choice
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.

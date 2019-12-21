@@ -31,17 +31,6 @@ public class TestIndex {
       		}
 		}
 
-		// Retain specified locks
-		/* void retain(Set<Integer> lock_ids) {
-		    for (int lock_id = 0; lock_id < locks.length; lock_id++) {
-		        if(locks[lock_id].getHoldCount() > 0 && !lock_ids.contains(lock_id)) {
-                    for(int i = 0; i < locks[lock_id].getHoldCount(); i++) {
-                        locks[lock_id].unlock();
-                    }
-                }
-		    }
-		} */
-
 		// Unlock method
 		void unlock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
@@ -107,7 +96,7 @@ public class TestIndex {
                             lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
-                        }
+                        } 
                         lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
                         return false;
                     case 1:
@@ -118,7 +107,7 @@ public class TestIndex {
                             lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
-                        }
+                        } 
                         lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
                         return false;
                     case 2:
@@ -128,7 +117,7 @@ public class TestIndex {
                             lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
-                        }
+                        } 
                         lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
                         return false;
                     default:
@@ -240,7 +229,7 @@ public class TestIndex {
                             lockManager.unlock(0, 1, 4 + i); // Release [x[0], x[1], y[i]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
-                        }
+                        } 
                         lockManager.unlock(0, 1, 4 + i); // Release [x[0], x[1], y[i]]
                         return false;
                     case 1:
@@ -250,7 +239,7 @@ public class TestIndex {
                             lockManager.unlock(4 + z[i], 2 + i); // Release [y[z[i]], z[i]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
-                        }
+                        } 
                         lockManager.unlock(4 + z[i], 2 + i); // Release [y[z[i]], z[i]]
                         return false;
                     case 2:
@@ -260,7 +249,7 @@ public class TestIndex {
                             lockManager.unlock(i, 2 + x[i]); // Release [x[i], z[x[i]]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
-                        }
+                        } 
                         lockManager.unlock(i, 2 + x[i]); // Release [x[i], z[x[i]]]
                         return false;
                     default:
@@ -368,14 +357,12 @@ public class TestIndex {
                     lockManager.unlock(0, 2 + i, 1); // Release [i, x[i], y]
                     currentState = SM1Thread.States.SM1_1;
                     return true;
-                } else if(y <= 10) { // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]} 
+                }  else { // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}
                     y = y + 1;
                     lockManager.unlock(0, 2 + i, 1); // Release [i, x[i], y]
                     currentState = SM1Thread.States.SM1_1;
                     return true;
-                }
-                lockManager.unlock(0, 2 + i, 1); // Release [i, x[i], y]
-                return false;
+                } 
             }
 
             private boolean exec_SM1_1() {
@@ -552,6 +539,119 @@ public class TestIndex {
             this.x = x;
             this.i = i;
             T_SM1 = new Q.SM1Thread(lockManager);
+        }
+
+        // Start all threads
+        public void startThreads() {
+            T_SM1.start();
+        }
+
+        // Join all threads
+        public void joinThreads() {
+            while (true) {
+                try {
+                    T_SM1.join();
+                    break;
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    // representation of a class
+    private static class R implements SLCO_Class {
+        // The threads
+        private final SM1Thread T_SM1;
+
+        interface R_SM1Thread_States {
+            enum States {
+                SM1_0
+            }
+        }
+
+        class SM1Thread extends Thread implements R_SM1Thread_States {
+            // Current state
+            private SM1Thread.States currentState;
+
+            // Random number generator to handle non-determinism
+            private final Random random;
+
+            // Counter of main while-loop iterations
+            long transition_counter;
+
+            // Counter for successful iterations
+            long successful_transition_counter;
+
+            // Thread local variables
+            private int[] y;
+            private int[] x;
+            private int[] i;
+
+            // The lock manager.
+            private final LockManager lockManager;
+
+            // Constructor
+            SM1Thread (LockManager lockManager) {
+                random = new Random();
+                this.lockManager = lockManager;
+                transition_counter = 0;
+                currentState = SM1Thread.States.SM1_0;
+                y = new int[] {0, 0};
+                x = new int[] {0, 0};
+                i = new int[] {0, 0};
+            }
+
+            private boolean exec_SM1_0() {
+                switch(random.nextInt(3)) {
+                    case 0:
+                        // from SM1_0 to SM1_0 {i[0] = i[y[0]]}
+                        i[0] = i[y[0]];
+                        currentState = SM1Thread.States.SM1_0;
+                        return true;
+                    case 1:
+                        // from SM1_0 to SM1_0 {x[0] = x[i[0]]}
+                        x[0] = x[i[0]];
+                        currentState = SM1Thread.States.SM1_0;
+                        return true;
+                    case 2:
+                        // from SM1_0 to SM1_0 {y[0] = y[x[0]]}
+                        y[0] = y[x[0]];
+                        currentState = SM1Thread.States.SM1_0;
+                        return true;
+                    default:
+                        throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
+                }
+            }
+
+            // Execute method
+            private void exec() {
+                boolean result;
+                while(transition_counter < COUNTER_BOUND) {
+                    result = exec_SM1_0();
+
+                    // Increment counter
+                    transition_counter++;
+                    if(result) {
+                        successful_transition_counter++;
+                    }
+                }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+            }
+
+            // Run method
+            public void run() {
+                exec();
+            }
+        }
+
+        // Constructor for main class
+        R() {
+            // Create a lock manager.
+            LockManager lockManager = new LockManager(0);
+
+            // Instantiate global variables
+            T_SM1 = new R.SM1Thread(lockManager);
         }
 
         // Start all threads
