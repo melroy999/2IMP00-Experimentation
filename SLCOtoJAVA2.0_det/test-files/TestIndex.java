@@ -62,10 +62,10 @@ public class TestIndex {
         private final SM1Thread T_SM1;
 
         // Global variables
-        private volatile int[] z;
-        private volatile int[] y;
-        private volatile int[] x;
-        private volatile int i;
+        private volatile int[] z; // Lock id 3
+        private volatile int[] y; // Lock id 5
+        private volatile int[] x; // Lock id 1
+        private volatile int i; // Lock id 0
 
         interface M_SM1Thread_States {
             enum States {
@@ -100,7 +100,9 @@ public class TestIndex {
             private boolean exec_SM1_0() {
                 switch(random.nextInt(3)) {
                     case 0:
-                        lockManager.lock(0, 1 + i, 3 + x[i]); // Acquire [i, x[i], z[x[i]]]
+                        lockManager.lock(0); // Request [i]
+                        lockManager.lock(1 + i); // Request [x[i]]
+                        lockManager.lock(3 + x[i]); // Request [z[x[i]]]
                         if (z[x[i]] == 1) { // from SM1_0 to SM1_0 {z[x[i]] = 1} 
                             lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
                             currentState = SM1Thread.States.SM1_0;
@@ -109,22 +111,25 @@ public class TestIndex {
                         lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
                         return false;
                     case 1:
-                        lockManager.lock(0, 1, 2, 5 + i); // Acquire [i, x[0], x[1], y[i]]
-                        if (x[y[i]] == 1) { // from SM1_0 to SM1_0 {x[y[i]] = 1} 
-                            lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
-                            currentState = SM1Thread.States.SM1_0;
-                            return true;
-                        }
-                        lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
-                        return false;
-                    case 2:
-                        lockManager.lock(0, 5 + z[i], 3 + i); // Acquire [i, y[z[i]], z[i]]
+                        lockManager.lock(0); // Request [i]
+                        lockManager.lock(3 + i); // Request [z[i]]
+                        lockManager.lock(5 + z[i]); // Request [y[z[i]]]
                         if (y[z[i]] == 1) { // from SM1_0 to SM1_0 {y[z[i]] = 1} 
                             lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         }
                         lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
+                        return false;
+                    case 2:
+                        lockManager.lock(0, 1, 2); // Request [i, x[0], x[1]]
+                        lockManager.lock(5 + i); // Request [y[i]]
+                        if (x[y[i]] == 1) { // from SM1_0 to SM1_0 {x[y[i]] = 1} 
+                            lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
+                            currentState = SM1Thread.States.SM1_0;
+                            return true;
+                        }
+                        lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
                         return false;
                     default:
                         throw new RuntimeException("The default statement in a non-deterministic block should be unreachable!");
@@ -189,9 +194,9 @@ public class TestIndex {
         private final SM1Thread T_SM1;
 
         // Global variables
-        private volatile int[] z;
-        private volatile int[] y;
-        private volatile int[] x;
+        private volatile int[] z; // Lock id 2
+        private volatile int[] y; // Lock id 4
+        private volatile int[] x; // Lock id 0
 
         interface N_SM1Thread_States {
             enum States {
@@ -230,7 +235,7 @@ public class TestIndex {
             private boolean exec_SM1_0() {
                 switch(random.nextInt(3)) {
                     case 0:
-                        lockManager.lock(0, 1, 4 + i); // Acquire [x[0], x[1], y[i]]
+                        lockManager.lock(0, 1, 4 + i); // Request [x[0], x[1], y[i]]
                         if (x[y[i]] == 1) { // from SM1_0 to SM1_0 {x[y[i]] = 1} 
                             lockManager.unlock(0, 1, 4 + i); // Release [x[0], x[1], y[i]]
                             currentState = SM1Thread.States.SM1_0;
@@ -239,7 +244,8 @@ public class TestIndex {
                         lockManager.unlock(0, 1, 4 + i); // Release [x[0], x[1], y[i]]
                         return false;
                     case 1:
-                        lockManager.lock(4 + z[i], 2 + i); // Acquire [y[z[i]], z[i]]
+                        lockManager.lock(2 + i); // Request [z[i]]
+                        lockManager.lock(4 + z[i]); // Request [y[z[i]]]
                         if (y[z[i]] == 1) { // from SM1_0 to SM1_0 {y[z[i]] = 1} 
                             lockManager.unlock(4 + z[i], 2 + i); // Release [y[z[i]], z[i]]
                             currentState = SM1Thread.States.SM1_0;
@@ -248,7 +254,8 @@ public class TestIndex {
                         lockManager.unlock(4 + z[i], 2 + i); // Release [y[z[i]], z[i]]
                         return false;
                     case 2:
-                        lockManager.lock(i, 2 + x[i]); // Acquire [x[i], z[x[i]]]
+                        lockManager.lock(i); // Request [x[i]]
+                        lockManager.lock(2 + x[i]); // Request [z[x[i]]]
                         if (z[x[i]] == 1) { // from SM1_0 to SM1_0 {z[x[i]] = 1} 
                             lockManager.unlock(i, 2 + x[i]); // Release [x[i], z[x[i]]]
                             currentState = SM1Thread.States.SM1_0;
@@ -318,9 +325,9 @@ public class TestIndex {
         private final SM1Thread T_SM1;
 
         // Global variables
-        private volatile int y;
-        private volatile int[] x;
-        private volatile int i;
+        private volatile int y; // Lock id 1
+        private volatile int[] x; // Lock id 2
+        private volatile int i; // Lock id 0
 
         interface P_SM1Thread_States {
             enum States {
@@ -353,7 +360,8 @@ public class TestIndex {
             }
 
             private boolean exec_SM1_0() {
-                lockManager.lock(0, 2 + i, 1); // Acquire [i, x[i], y]
+                lockManager.lock(0, 1); // Request [i, y]
+                lockManager.lock(2 + i); // Request [x[i]]
                 if (y > 10) { // from SM1_0 to SM1_1 {[y > 10; x[i] = 0; y = 0]} 
                     x[i] = 0;
                     y = 0;
@@ -374,7 +382,8 @@ public class TestIndex {
                 switch(random.nextInt(2)) {
                     case 0:
                         // from SM1_1 to SM1_0 {x[i] = x[i] + 1}
-                        lockManager.lock(0, 2 + i); // Request [i, x[i]]
+                        lockManager.lock(0); // Request [i]
+                        lockManager.lock(2 + i); // Request [x[i]]
                         x[i] = x[i] + 1;
                         lockManager.unlock(0, 2 + i); // Release [i, x[i]]
                         currentState = SM1Thread.States.SM1_0;
@@ -448,9 +457,9 @@ public class TestIndex {
         private final SM1Thread T_SM1;
 
         // Global variables
-        private volatile int[] y;
-        private volatile int[] x;
-        private volatile int[] i;
+        private volatile int[] y; // Lock id 4
+        private volatile int[] x; // Lock id 2
+        private volatile int[] i; // Lock id 0
 
         interface Q_SM1Thread_States {
             enum States {
@@ -493,14 +502,16 @@ public class TestIndex {
                         return true;
                     case 1:
                         // from SM1_0 to SM1_0 {x[0] = x[i[0]]}
-                        lockManager.lock(0, 2, 2 + i[0]); // Request [i[0], x[0], x[i[0]]]
+                        lockManager.lock(0); // Request [i[0]]
+                        lockManager.lock(2, 2 + i[0]); // Request [x[0], x[i[0]]]
                         x[0] = x[i[0]];
                         lockManager.unlock(0, 2, 2 + i[0]); // Release [i[0], x[0], x[i[0]]]
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 2:
                         // from SM1_0 to SM1_0 {y[0] = y[x[0]]}
-                        lockManager.lock(2, 4, 4 + x[0]); // Request [x[0], y[0], y[x[0]]]
+                        lockManager.lock(2); // Request [x[0]]
+                        lockManager.lock(4, 4 + x[0]); // Request [y[0], y[x[0]]]
                         y[0] = y[x[0]];
                         lockManager.unlock(2, 4, 4 + x[0]); // Release [x[0], y[0], y[x[0]]]
                         currentState = SM1Thread.States.SM1_0;

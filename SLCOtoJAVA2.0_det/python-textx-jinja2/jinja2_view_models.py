@@ -217,7 +217,7 @@ def propagate_acquire_locks(model, name_to_variable):
         correct_dependency_graph(variable_dependency_graph, name_to_variable, None)
 
         # Break the lock id list into different phases, following the dependency graph.
-        model.acquire_locks_phased = get_locking_phases(variable_dependency_graph, name_to_variable, model.target_locks)
+        model.lock_variable_phases = get_locking_phases(variable_dependency_graph, name_to_variable, model.target_locks)
 
 
 def propagate_release_locks(model, acquired_locks):

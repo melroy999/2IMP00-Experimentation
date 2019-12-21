@@ -1,12 +1,14 @@
-{% if locks %}
-lockManager.lock({{locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{locks | to_comma_separated_lock_name_list}}]
+{% if lock_variable_phases %}
+{% for phase in lock_variable_phases %}
+lockManager.lock({{phase | to_comma_separated_lock_id_list(_c)}}); // Request [{{phase | to_comma_separated_lock_name_list}}]
+{% endfor %}
 {% endif %}
 if(!({{expression | get_instruction}})) {
-    {% if locks %}
-    lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{locks | to_comma_separated_lock_name_list}}]
+    {% if release_locks %}
+    lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{release_locks | to_comma_separated_lock_name_list}}]
     {% endif %}
     return false;
 }
-{% if locks %}
-lockManager.unlock({{locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{locks | to_comma_separated_lock_name_list}}]
+{% if release_locks %}
+lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{release_locks | to_comma_separated_lock_name_list}}]
 {% endif %}

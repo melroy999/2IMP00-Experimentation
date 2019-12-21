@@ -2,8 +2,10 @@
 {% if release_locks %}
 lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // Release [{{release_locks | to_comma_separated_lock_name_list}}]
 {% endif %}
-{% if acquire_locks %}
-lockManager.lock({{acquire_locks | to_comma_separated_lock_id_list(_c)}}); // Acquire [{{acquire_locks | to_comma_separated_lock_name_list}}]
+{% if lock_variable_phases %}
+{% for phase in lock_variable_phases %}
+lockManager.lock({{phase | to_comma_separated_lock_id_list(_c)}}); // Request [{{phase | to_comma_separated_lock_name_list}}]
+{% endfor %}
 {% endif %}
 switch({{subject_expression}}) {
     {% for choice in choices %}

@@ -114,19 +114,22 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
         return java_composite_template.render(
             guard=guard,
             assignments=assignments,
-            locks=model.lock_variables,
+            lock_variable_phases=model.lock_variable_phases,
+            release_locks=model.lock_variables,
             _c=sm.parent_class
         )
     elif model_class == "Assignment":
         return java_assignment_template.render(
             requires_lock=requires_lock,
-            locks=model.lock_variables if requires_lock else None,
+            lock_variable_phases=model.lock_variable_phases if requires_lock else None,
+            release_locks=model.lock_variables if requires_lock else None,
             assignment=model,
             _c=sm.parent_class
         )
     elif model_class == "Expression":
         return java_expression_template.render(
-            locks=model.lock_variables,
+            lock_variable_phases=model.lock_variable_phases,
+            release_locks=model.lock_variables,
             expression=model,
             _c=sm.parent_class
         )
@@ -166,7 +169,6 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
         return java_non_deterministic_case_distinction_template.render(
             release_locks=model.release_locks,
             choices=choices,
-            target_locks=model.target_locks,
             _c=sm.parent_class
         )
     elif model_class == "DeterministicIfThenElseBlock":
@@ -181,7 +183,7 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
         choices.sort(key=lambda v: v[0])
 
         return java_if_then_else_template.render(
-            acquire_locks=model.acquire_locks,
+            lock_variable_phases=model.lock_variable_phases,
             release_locks=model.release_locks,
             target_locks=model.target_locks,
             choices=choices,
@@ -207,7 +209,7 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
         subject_expression = get_instruction(model.subject_expression)
         default_decision_tree = construct_decision_code(model.default_decision_tree, sm)
         return java_case_distinction_template.render(
-            acquire_locks=model.acquire_locks,
+            lock_variable_phases=model.lock_variable_phases,
             release_locks=model.release_locks,
             target_locks=model.target_locks,
             subject_expression=subject_expression,
