@@ -137,23 +137,25 @@ def construct_variable_dependency_graph(model, variable_to_node, target_variable
         for a in model.assignments:
             construct_variable_dependency_graph(a, variable_to_node, target_variables, variable_stack)
     elif class_name == "ExpressionRef":
-        # Always create a node if the variable does not exist yet in the graph.
-        target_variable = variable_to_node.setdefault(model.ref, Node(model.ref))
-        if len(variable_stack) > 0 and model.ref in target_variables:
-            parent_variable = variable_to_node.setdefault(variable_stack[-1], Node(variable_stack[-1]))
-            parent_variable.add_successor(target_variable)
-        variable_stack.append(model.ref)
+        if model.ref in target_variables:
+            target_variable = variable_to_node.setdefault(model.ref, Node(model.ref))
+            if len(variable_stack) > 0:
+                parent_variable = variable_to_node.setdefault(variable_stack[-1], Node(variable_stack[-1]))
+                parent_variable.add_successor(target_variable)
+            variable_stack.append(model.ref)
         construct_variable_dependency_graph(model.index, variable_to_node, target_variables, variable_stack)
-        variable_stack.pop()
+        if model.ref in target_variables:
+            variable_stack.pop()
     elif class_name == "VariableRef":
-        # Always create a node if the variable does not exist yet in the graph.
-        target_variable = variable_to_node.setdefault(model.var.name, Node(model.var.name))
-        if len(variable_stack) > 0 and model.var.name in target_variables:
-            parent_variable = variable_to_node.setdefault(variable_stack[-1], Node(variable_stack[-1]))
-            parent_variable.add_successor(target_variable)
-        variable_stack.append(model.var.name)
+        if model.var.name in target_variables:
+            target_variable = variable_to_node.setdefault(model.var.name, Node(model.var.name))
+            if len(variable_stack) > 0:
+                parent_variable = variable_to_node.setdefault(variable_stack[-1], Node(variable_stack[-1]))
+                parent_variable.add_successor(target_variable)
+            variable_stack.append(model.var.name)
         construct_variable_dependency_graph(model.index, variable_to_node, target_variables, variable_stack)
-        variable_stack.pop()
+        if model.var.name in target_variables:
+            variable_stack.pop()
     elif class_name == "Primary":
         construct_variable_dependency_graph(model.body, variable_to_node, target_variables, variable_stack)
         construct_variable_dependency_graph(model.ref, variable_to_node, target_variables, variable_stack)
@@ -232,30 +234,28 @@ def order_lock_ids(v, name_to_variable):
     return name_to_variable[variable].lock_id + offset
 
 
-def add_lock_ordering_corrections(model, name_to_variable):
-    # Construct a variable dependency graph for the statement.
-    variable_dependency_graph = {}
-    construct_variable_dependency_graph(model, variable_dependency_graph, set(name_to_variable.keys()))
-    lock_ids = set(model.lock_variables)
-
-    # If a node has a dependency on a higher id node, expand and remove all dependencies of the node.
+def correct_dependency_graph(variable_dependency_graph, name_to_variable, lock_ids=None):
+    # If a node has a dependency on a higher id node, remove all dependencies of the node.
     # Remove superfluous lock id statements--all original lock id statements starting with the variable are superfluous.
     for node in variable_dependency_graph.values():
         target_variable = name_to_variable[node.key]
         if any(name_to_variable[v.key].lock_id >= target_variable.lock_id for v in node.successors):
-            # Remove all lock id statements that are over variable node.key.
-            lock_ids.symmetric_difference_update(v for v in lock_ids if v[0] == node.key)
+            if lock_ids is not None:
+                # Remove all lock id statements that are over variable node.key.
+                lock_ids.symmetric_difference_update(set(v for v in lock_ids if v[0] == node.key))
 
-            # Create lock ids for all values of the variable associated to the node.
-            lock_ids.update((node.key, i) for i in range(0, target_variable.type.size))
+                # Create lock ids for all values of the variable associated to the node.
+                lock_ids.update((node.key, i) for i in range(0, target_variable.type.size))
 
             # Remove all dependencies of the node.
             for successor_node in list(node.successors):
                 node.remove_successor(successor_node)
 
+
+def get_locking_phases(variable_dependency_graph, name_to_variable, lock_ids):
     # Break the lock id list into different phases, following the dependency graph.
     lock_id_ordering = sorted(lock_ids, key=lambda v: order_lock_ids(v, name_to_variable))
-    lock_variables = []
+    lock_variable_phases = []
     current_phase = []
     encountered_nodes = set([])
     for variable, index in lock_id_ordering:
@@ -266,7 +266,7 @@ def add_lock_ordering_corrections(model, name_to_variable):
         # Note that no circular dependencies exist anymore, since the graph now has a strict lock id order.
         if len(target_node.successors) > 0:
             # Flush the current phase.
-            lock_variables.append(current_phase)
+            lock_variable_phases.append(current_phase)
             current_phase = []
 
             # Remove all associations with the previously encountered nodes.
@@ -280,9 +280,20 @@ def add_lock_ordering_corrections(model, name_to_variable):
 
     # Flush the last phase, if it is non-empty.
     if len(current_phase) > 0:
-        lock_variables.append(current_phase)
+        lock_variable_phases.append(current_phase)
+    return lock_variable_phases
 
-    print()
+
+def add_lock_ordering_corrections(model, name_to_variable):
+    # Construct a variable dependency graph for the statement.
+    variable_dependency_graph = {}
+    construct_variable_dependency_graph(model, variable_dependency_graph, set(name_to_variable.keys()))
+
+    # If a node has a dependency on a higher id node, expand and remove all dependencies of the node.
+    correct_dependency_graph(variable_dependency_graph, name_to_variable, model.lock_variables)
+
+    # Break the lock id list into different phases, following the dependency graph.
+    # model.lock_variable_phases = get_locking_phases(variable_dependency_graph, name_to_variable, model.lock_variables)
 
 
 def construct_valid_lock_order(model):
@@ -291,6 +302,3 @@ def construct_valid_lock_order(model):
             add_lock_ordering_corrections(t.guard, model.name_to_variable)
             for s in t.statements:
                 add_lock_ordering_corrections(s, model.name_to_variable)
-
-    print()
-    pass
