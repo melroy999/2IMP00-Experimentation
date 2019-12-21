@@ -1,6 +1,7 @@
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
+import java.util.Set;
 
 // main class
 @SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused", "SpellCheckingInspection"})
@@ -25,23 +26,27 @@ public class Test2 {
 		// Lock method
 		void lock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
-		    int last_lock_id = -1;
 			for (int lock_id : lock_ids) {
-			    if(lock_id != last_lock_id) {
-                    locks[lock_id].lock();
-			        last_lock_id = lock_id;
-			    }
+                locks[lock_id].lock();
       		}
 		}
+
+		// Retain specified locks
+		/* void retain(Set<Integer> lock_ids) {
+		    for (int lock_id = 0; lock_id < locks.length; lock_id++) {
+		        if(locks[lock_id].getHoldCount() > 0 && !lock_ids.contains(lock_id)) {
+                    for(int i = 0; i < locks[lock_id].getHoldCount(); i++) {
+                        locks[lock_id].unlock();
+                    }
+                }
+		    }
+		} */
 
 		// Unlock method
 		void unlock(int... lock_ids) {
 		    Arrays.sort(lock_ids);
-		    int last_lock_id = -1;
 			for (int lock_id : lock_ids) {
-			    if(lock_id != last_lock_id) {
-                    locks[lock_id].unlock();
-                }
+                locks[lock_id].unlock();
       		}
 		}
 	}
@@ -58,7 +63,7 @@ public class Test2 {
         private final SM1Thread T_SM1;
 
         // Global variables
-        private volatile int y;
+        private volatile int y; // Lock id 0
 
         interface P_SM0Thread_States {
             enum States {
@@ -98,9 +103,9 @@ public class Test2 {
                 // from SM0_0 to SM0_1 {false} (trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_0 to SM0_1 {tau} (trivially satisfiable) (functional duplicate of case below)
+                        // from SM0_0 to SM0_1 {tau} (functional duplicate of case below)
                     case 1:
-                        // from SM0_0 to SM0_1 {true} (trivially satisfiable)
+                        // from SM0_0 to SM0_1 {true}
                         currentState = SM0Thread.States.SM0_1;
                         return true;
                     default:
@@ -112,9 +117,9 @@ public class Test2 {
                 // from SM0_1 to SM0_0 {false} (trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_1 to SM0_0 {tau} (trivially satisfiable) (functional duplicate of case below)
+                        // from SM0_1 to SM0_0 {tau} (functional duplicate of case below)
                     case 1:
-                        // from SM0_1 to SM0_0 {true} (trivially satisfiable)
+                        // from SM0_1 to SM0_0 {true}
                         currentState = SM0Thread.States.SM0_0;
                         return true;
                     default:
@@ -126,16 +131,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM0_0:
-                            result = exec_SM0_0();
-                            break;
-                        case SM0_1:
-                            result = exec_SM0_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM0_0();
 
                     // Increment counter
                     transition_counter++;
@@ -143,6 +139,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -186,7 +183,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_0() {
-                lockManager.lock(0); // Acquire [y]
+                lockManager.lock(0); // Request [y]
                 if (y > 10) { // from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]} 
                     x[0] = 0;
                     y = 0;
@@ -204,7 +201,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_1() {
-                // from SM1_1 to SM1_0 {x[0] = x[0] + 1} (trivially satisfiable)
+                // from SM1_1 to SM1_0 {x[0] = x[0] + 1}
                 x[0] = x[0] + 1;
                 currentState = SM1Thread.States.SM1_0;
                 return true;
@@ -214,16 +211,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM1_0:
-                            result = exec_SM1_0();
-                            break;
-                        case SM1_1:
-                            result = exec_SM1_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM1_0();
 
                     // Increment counter
                     transition_counter++;
@@ -231,6 +219,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -276,8 +265,8 @@ public class Test2 {
         private final SM0Thread T_SM0;
 
         // Global variables
-        private volatile int y;
-        private volatile int[] x;
+        private volatile int y; // Lock id 0
+        private volatile int[] x; // Lock id 1
 
         interface Q_SM0Thread_States {
             enum States {
@@ -310,7 +299,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                lockManager.lock(1, 0); // Acquire [x[0], y]
+                lockManager.lock(1, 0); // Request [x[0], y]
                 if (y >= 10) { // from SM0_0 to SM0_1 {[y >= 10; x[0] = 0; y = 0]} 
                     x[0] = 0;
                     y = 0;
@@ -328,8 +317,9 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {x[y + 1] = x[y + 1] + 1} (trivially satisfiable)
-                lockManager.lock(1 + y + 1, 0); // Request [x[y + 1], y]
+                // from SM0_1 to SM0_0 {x[y + 1] = x[y + 1] + 1}
+                lockManager.lock(0); // Request [y]
+                lockManager.lock(1 + y + 1); // Request [x[y + 1]]
                 x[y + 1] = x[y + 1] + 1;
                 lockManager.unlock(1 + y + 1, 0); // Release [x[y + 1], y]
                 currentState = SM0Thread.States.SM0_0;
@@ -340,16 +330,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM0_0:
-                            result = exec_SM0_0();
-                            break;
-                        case SM0_1:
-                            result = exec_SM0_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM0_0();
 
                     // Increment counter
                     transition_counter++;
@@ -357,6 +338,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -401,7 +383,7 @@ public class Test2 {
         private final SM1Thread T_SM1;
 
         // Global variables
-        private volatile int y;
+        private volatile int y; // Lock id 0
 
         interface R_SM0Thread_States {
             enum States {
@@ -434,7 +416,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                lockManager.lock(0); // Acquire [y]
+                lockManager.lock(0); // Request [y]
                 switch(Math.floorMod(y, 4)) {
                     case 2: // from SM0_0 to SM0_1 {[y % 4 = 2; y = y + 1]} 
                         y = y + 1;
@@ -463,7 +445,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {y = y ** 2} (trivially satisfiable)
+                // from SM0_1 to SM0_0 {y = y ** 2}
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -475,16 +457,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM0_0:
-                            result = exec_SM0_0();
-                            break;
-                        case SM0_1:
-                            result = exec_SM0_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM0_0();
 
                     // Increment counter
                     transition_counter++;
@@ -492,6 +465,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -531,7 +505,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_0() {
-                lockManager.lock(0); // Acquire [y]
+                lockManager.lock(0); // Request [y]
                 switch(Math.floorMod(y, 4)) {
                     case 2: // from SM1_0 to SM1_1 {y % 4 = 2; y = y + 1} 
                         lockManager.unlock(0); // Release [y]
@@ -568,7 +542,7 @@ public class Test2 {
             }
 
             private boolean exec_SM1_1() {
-                // from SM1_1 to SM1_0 {y = y ** 2} (trivially satisfiable)
+                // from SM1_1 to SM1_0 {y = y ** 2}
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -580,16 +554,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM1_0:
-                            result = exec_SM1_0();
-                            break;
-                        case SM1_1:
-                            result = exec_SM1_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM1_0();
 
                     // Increment counter
                     transition_counter++;
@@ -597,6 +562,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -642,7 +608,7 @@ public class Test2 {
         private final SM0Thread T_SM0;
 
         // Global variables
-        private volatile int y;
+        private volatile int y; // Lock id 0
 
         interface S_SM0Thread_States {
             enum States {
@@ -675,7 +641,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                lockManager.lock(0); // Acquire [y]
+                lockManager.lock(0); // Request [y]
                 switch(Math.floorMod(y, 4)) {
                     case 0: // from SM0_0 to SM0_1 {y % 4 = 0} (functional duplicate of case below) 
                     case 1: // from SM0_0 to SM0_1 {y % 4 = 1} (functional duplicate of case below) 
@@ -691,7 +657,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {y = y ** 2} (trivially satisfiable)
+                // from SM0_1 to SM0_0 {y = y ** 2}
                 lockManager.lock(0); // Request [y]
                 y = (int) Math.pow(y, 2);
                 lockManager.unlock(0); // Release [y]
@@ -703,16 +669,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM0_0:
-                            result = exec_SM0_0();
-                            break;
-                        case SM0_1:
-                            result = exec_SM0_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM0_0();
 
                     // Increment counter
                     transition_counter++;
@@ -720,6 +677,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -762,7 +720,7 @@ public class Test2 {
         private final SM0Thread T_SM0;
 
         // Global variables
-        private volatile int y;
+        private volatile int y; // Lock id 0
 
         interface T_SM0Thread_States {
             enum States {
@@ -797,7 +755,7 @@ public class Test2 {
             private boolean exec_SM0_0() {
                 switch(random.nextInt(2)) {
                     case 0:
-                        lockManager.lock(0); // Acquire [y]
+                        lockManager.lock(0); // Request [y]
                         if (y == 1) { // from SM0_0 to SM0_1 {y = 1} 
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
@@ -831,7 +789,7 @@ public class Test2 {
                         lockManager.unlock(0); // Release [y]
                         return false;
                     case 1:
-                        lockManager.lock(0); // Acquire [y]
+                        lockManager.lock(0); // Request [y]
                         if (y >= 0) { // from SM0_0 to SM0_1 {y >= 0} 
                             lockManager.unlock(0); // Release [y]
                             currentState = SM0Thread.States.SM0_1;
@@ -845,7 +803,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_1() {
-                // from SM0_1 to SM0_0 {tau} (trivially satisfiable)
+                // from SM0_1 to SM0_0 {tau}
                 currentState = SM0Thread.States.SM0_0;
                 return true;
             }
@@ -854,16 +812,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM0_0:
-                            result = exec_SM0_0();
-                            break;
-                        case SM0_1:
-                            result = exec_SM0_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM0_0();
 
                     // Increment counter
                     transition_counter++;
@@ -871,6 +820,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method
@@ -913,7 +863,7 @@ public class Test2 {
         private final SM0Thread T_SM0;
 
         // Global variables
-        private volatile int y;
+        private volatile int y; // Lock id 0
 
         interface U_SM0Thread_States {
             enum States {
@@ -946,7 +896,7 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
-                lockManager.lock(0); // Acquire [y]
+                lockManager.lock(0); // Request [y]
                 if (y == 1) { // from SM0_0 to SM0_1 {y = 1; false; y = y - 1} 
                     lockManager.unlock(0); // Release [y]
                     return false;
@@ -989,10 +939,10 @@ public class Test2 {
                 // from SM0_1 to SM0_0 {false; false; y = y + 1} (trivially unsatisfiable)
                 switch(random.nextInt(2)) {
                     case 0:
-                        // from SM0_1 to SM0_0 {true; false; y = y + 1} (trivially satisfiable)
+                        // from SM0_1 to SM0_0 {true; false; y = y + 1}
                         return false;
                     case 1:
-                        // from SM0_1 to SM0_0 {true; true; y = y + 1} (trivially satisfiable)
+                        // from SM0_1 to SM0_0 {true; true; y = y + 1}
                         lockManager.lock(0); // Request [y]
                         y = y + 1;
                         lockManager.unlock(0); // Release [y]
@@ -1007,16 +957,7 @@ public class Test2 {
             private void exec() {
                 boolean result;
                 while(transition_counter < COUNTER_BOUND) {
-                    switch(currentState) {
-                        case SM0_0:
-                            result = exec_SM0_0();
-                            break;
-                        case SM0_1:
-                            result = exec_SM0_1();
-                            break;
-                        default:
-                            return;
-                    }
+                    result = exec_SM0_0();
 
                     // Increment counter
                     transition_counter++;
@@ -1024,6 +965,7 @@ public class Test2 {
                         successful_transition_counter++;
                     }
                 }
+                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
             }
 
             // Run method

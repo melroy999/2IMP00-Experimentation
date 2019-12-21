@@ -34,7 +34,7 @@ class DeterministicIfThenElseBlock:
     """A wrapper for a simple deterministic if-then-else block"""
     # Which locks have to be acquired and released?
     acquire_locks = None
-    acquire_locks_phased = None
+    lock_variable_phases = None
     release_locks = None
 
     def __init__(self, choice_blocks):
@@ -65,7 +65,7 @@ class DeterministicCaseDistinctionBlock:
     """A wrapper for a deterministic case distinction block"""
     # Which locks have to be acquired and released?
     acquire_locks = None
-    acquire_locks_phased = None
+    lock_variable_phases = None
     release_locks = None
 
     def __init__(self, subject_expression, choice_blocks, default_decision_tree):
