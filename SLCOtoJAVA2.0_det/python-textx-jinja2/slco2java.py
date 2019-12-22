@@ -2,6 +2,7 @@
 # import libraries
 import os
 
+import settings
 from determinism_annotations import add_determinism_annotations
 from jinja2_filters import *
 from model_transformations import transform_model
@@ -21,25 +22,28 @@ def preprocess(model):
     return model
 
 
-add_counter = False
 model_folder, model_name = None, None
 
 
 def slco_to_java(model):
     """The translation function"""
-    global add_counter, model_folder, model_name
+    global model_folder, model_name
     out_file = open(os.path.join(model_folder, model.name + ".java"), 'w')
 
     # write the program
     out_file.write(
-        render_model(model, add_counter)
+        render_model(model)
     )
     out_file.close()
 
 
 def main(_args):
     """The main function"""
-    global add_counter, model_folder, model_name
+    global model_folder, model_name
+
+    add_counter = False
+    add_performance_counters = False
+    print_decision_report = False
 
     if len(_args) == 0:
         print("Missing argument: SLCO model")
@@ -50,15 +54,23 @@ def main(_args):
             print("")
             print("Transform an SLCO 2.0 model to a Java program.")
             print("-c                 produce a transition counter in the code, to make program executions finite")
+            print("-p                 add profiling counters for the transitions and performance")
+            print("-pdh               print the decision hierarchy in the console")
             sys.exit(0)
         else:
             _i = 0
             while _i < len(_args):
                 if _args[_i] == '-c':
                     add_counter = True
+                elif _args[_i] == '-p':
+                    add_performance_counters = True
+                elif _args[_i] == '-pdh':
+                    print_decision_report = True
                 else:
                     model_folder, model_name = os.path.split(_args[_i])
                 _i += 1
+
+    settings.init(add_counter, add_performance_counters, print_decision_report)
 
     # read model
     model = read_SLCO_model(os.path.join(model_folder, model_name))

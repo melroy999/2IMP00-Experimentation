@@ -1,5 +1,4 @@
 from jinja2_filters import get_instruction
-from range_analysis import get_ranges
 from smt_functions import z3_truth_check, to_simple_ast
 
 # An expression that represents an object that is always true, used as replacement for empty guards.

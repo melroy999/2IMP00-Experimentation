@@ -1,4 +1,6 @@
 from enum import Enum
+
+import settings
 from smt_functions import to_smt_format_string, z3_opr_check
 
 
@@ -229,5 +231,6 @@ def add_determinism_annotations(model):
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
                     sm.groupings[state] = format_decision_group_tree(groupings, trivially_satisfiable)
 
-                    print_determinism_report(state, sm, transitions, trivially_satisfiable, trivially_unsatisfiable)
+                    if settings.print_decision_report:
+                        print_determinism_report(state, sm, transitions, trivially_satisfiable, trivially_unsatisfiable)
     return model

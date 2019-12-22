@@ -15,7 +15,7 @@ private static class {{model.name}} implements SLCO_Class {
 
     {% endif %}
     {% for sm in model.statemachines %}
-    {{sm | render_state_machine(add_counter, model) | indent(4, False)}}
+    {{sm | render_state_machine(model) | indent(4, False)}}
 
     {% endfor %}
     // Constructor for main class

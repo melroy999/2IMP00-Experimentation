@@ -1,7 +1,9 @@
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.Arrays;
-import java.util.Set;
+import java.util.HashMap;
+import java.time.Duration;
+import java.time.Instant;
 
 // main class
 @SuppressWarnings({"NonAtomicOperationOnVolatileField", "FieldCanBeLocal", "InnerClassMayBeStatic", "DuplicatedCode", "MismatchedReadAndWriteOfArray", "unused", "SpellCheckingInspection"})
@@ -10,7 +12,7 @@ public class TestIndex {
     private final SLCO_Class[] objects;
 
     // Upperbound for transition counter
-    private static final long COUNTER_BOUND = 300000000L;
+    private static final long COUNTER_BOUND = 10000000L;
 
     // Lock class to handle locks of global variables
 	private static class LockManager {
@@ -33,7 +35,6 @@ public class TestIndex {
 
 		// Unlock method
 		void unlock(int... lock_ids) {
-		    Arrays.sort(lock_ids);
 			for (int lock_id : lock_ids) {
                 locks[lock_id].unlock();
       		}
@@ -70,10 +71,13 @@ public class TestIndex {
             private final Random random;
 
             // Counter of main while-loop iterations
-            long transition_counter;
+            long transitionCounter;
 
             // Counter for successful iterations
-            long successful_transition_counter;
+            long successful_transitionCounter;
+
+            // A counter for the transitions.
+            private HashMap<String, Integer> transitionCounterMap;
 
             // The lock manager.
             private final LockManager lockManager;
@@ -82,7 +86,8 @@ public class TestIndex {
             SM1Thread (LockManager lockManager) {
                 random = new Random();
                 this.lockManager = lockManager;
-                transition_counter = 0;
+                transitionCounter = 0;
+                transitionCounterMap = new HashMap<>();
                 currentState = SM1Thread.States.SM1_0;
             }
 
@@ -94,6 +99,7 @@ public class TestIndex {
                         lockManager.lock(3 + x[i]); // Request [z[x[i]]]
                         if (z[x[i]] == 1) { // from SM1_0 to SM1_0 {z[x[i]] = 1} 
                             lockManager.unlock(0, 1 + i, 3 + x[i]); // Release [i, x[i], z[x[i]]]
+                            transitionCounterMap.merge("from SM1_0 to SM1_0 {z[x[i]] = 1}", 1, Integer::sum);
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         } 
@@ -105,6 +111,7 @@ public class TestIndex {
                         lockManager.lock(5 + z[i]); // Request [y[z[i]]]
                         if (y[z[i]] == 1) { // from SM1_0 to SM1_0 {y[z[i]] = 1} 
                             lockManager.unlock(0, 5 + z[i], 3 + i); // Release [i, y[z[i]], z[i]]
+                            transitionCounterMap.merge("from SM1_0 to SM1_0 {y[z[i]] = 1}", 1, Integer::sum);
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         } 
@@ -115,6 +122,7 @@ public class TestIndex {
                         lockManager.lock(5 + i); // Request [y[i]]
                         if (x[y[i]] == 1) { // from SM1_0 to SM1_0 {x[y[i]] = 1} 
                             lockManager.unlock(0, 1, 2, 5 + i); // Release [i, x[0], x[1], y[i]]
+                            transitionCounterMap.merge("from SM1_0 to SM1_0 {x[y[i]] = 1}", 1, Integer::sum);
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         } 
@@ -128,16 +136,22 @@ public class TestIndex {
             // Execute method
             private void exec() {
                 boolean result;
-                while(transition_counter < COUNTER_BOUND) {
+                Instant start = Instant.now();
+                while(transitionCounter < COUNTER_BOUND) {
                     result = exec_SM1_0();
 
                     // Increment counter
-                    transition_counter++;
+                    transitionCounter++;
                     if(result) {
-                        successful_transition_counter++;
+                        successful_transitionCounter++;
                     }
                 }
-                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+                System.out.println("M.SM1: " + successful_transitionCounter + "/" + transitionCounter + " (successful/total transitions)");
+                Instant finish = Instant.now();
+                System.out.println("Thread M.SM1 finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+                System.out.println("Transition count:");
+                transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+                System.out.println();
             }
 
             // Run method
@@ -201,10 +215,13 @@ public class TestIndex {
             private final Random random;
 
             // Counter of main while-loop iterations
-            long transition_counter;
+            long transitionCounter;
 
             // Counter for successful iterations
-            long successful_transition_counter;
+            long successful_transitionCounter;
+
+            // A counter for the transitions.
+            private HashMap<String, Integer> transitionCounterMap;
 
             // Thread local variables
             private int i;
@@ -216,7 +233,8 @@ public class TestIndex {
             SM1Thread (LockManager lockManager) {
                 random = new Random();
                 this.lockManager = lockManager;
-                transition_counter = 0;
+                transitionCounter = 0;
+                transitionCounterMap = new HashMap<>();
                 currentState = SM1Thread.States.SM1_0;
                 i = 0;
             }
@@ -227,6 +245,7 @@ public class TestIndex {
                         lockManager.lock(0, 1, 4 + i); // Request [x[0], x[1], y[i]]
                         if (x[y[i]] == 1) { // from SM1_0 to SM1_0 {x[y[i]] = 1} 
                             lockManager.unlock(0, 1, 4 + i); // Release [x[0], x[1], y[i]]
+                            transitionCounterMap.merge("from SM1_0 to SM1_0 {x[y[i]] = 1}", 1, Integer::sum);
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         } 
@@ -237,6 +256,7 @@ public class TestIndex {
                         lockManager.lock(4 + z[i]); // Request [y[z[i]]]
                         if (y[z[i]] == 1) { // from SM1_0 to SM1_0 {y[z[i]] = 1} 
                             lockManager.unlock(4 + z[i], 2 + i); // Release [y[z[i]], z[i]]
+                            transitionCounterMap.merge("from SM1_0 to SM1_0 {y[z[i]] = 1}", 1, Integer::sum);
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         } 
@@ -247,6 +267,7 @@ public class TestIndex {
                         lockManager.lock(2 + x[i]); // Request [z[x[i]]]
                         if (z[x[i]] == 1) { // from SM1_0 to SM1_0 {z[x[i]] = 1} 
                             lockManager.unlock(i, 2 + x[i]); // Release [x[i], z[x[i]]]
+                            transitionCounterMap.merge("from SM1_0 to SM1_0 {z[x[i]] = 1}", 1, Integer::sum);
                             currentState = SM1Thread.States.SM1_0;
                             return true;
                         } 
@@ -260,16 +281,22 @@ public class TestIndex {
             // Execute method
             private void exec() {
                 boolean result;
-                while(transition_counter < COUNTER_BOUND) {
+                Instant start = Instant.now();
+                while(transitionCounter < COUNTER_BOUND) {
                     result = exec_SM1_0();
 
                     // Increment counter
-                    transition_counter++;
+                    transitionCounter++;
                     if(result) {
-                        successful_transition_counter++;
+                        successful_transitionCounter++;
                     }
                 }
-                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+                System.out.println("N.SM1: " + successful_transitionCounter + "/" + transitionCounter + " (successful/total transitions)");
+                Instant finish = Instant.now();
+                System.out.println("Thread N.SM1 finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+                System.out.println("Transition count:");
+                transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+                System.out.println();
             }
 
             // Run method
@@ -332,10 +359,13 @@ public class TestIndex {
             private final Random random;
 
             // Counter of main while-loop iterations
-            long transition_counter;
+            long transitionCounter;
 
             // Counter for successful iterations
-            long successful_transition_counter;
+            long successful_transitionCounter;
+
+            // A counter for the transitions.
+            private HashMap<String, Integer> transitionCounterMap;
 
             // The lock manager.
             private final LockManager lockManager;
@@ -344,22 +374,32 @@ public class TestIndex {
             SM1Thread (LockManager lockManager) {
                 random = new Random();
                 this.lockManager = lockManager;
-                transition_counter = 0;
+                transitionCounter = 0;
+                transitionCounterMap = new HashMap<>();
                 currentState = SM1Thread.States.SM1_0;
             }
 
             private boolean exec_SM1_0() {
                 lockManager.lock(0, 1); // Request [i, y]
                 lockManager.lock(2 + i); // Request [x[i]]
-                if (y > 10) { // from SM1_0 to SM1_1 {[y > 10; x[i] = 0; y = 0]} 
+                if (y > 10 && y <= 20) { // from SM1_0 to SM1_1 {[y > 10 and y <= 20; x[i] = 0; y = 0]} 
                     x[i] = 0;
                     y = 0;
                     lockManager.unlock(0, 2 + i, 1); // Release [i, x[i], y]
+                    transitionCounterMap.merge("from SM1_0 to SM1_1 {[y > 10 and y <= 20; x[i] = 0; y = 0]}", 1, Integer::sum);
+                    currentState = SM1Thread.States.SM1_1;
+                    return true;
+                } else if(y > 20) { // from SM1_0 to SM1_1 {[y > 20; x[i] = 0; y = 0]} 
+                    x[i] = 0;
+                    y = 0;
+                    lockManager.unlock(0, 2 + i, 1); // Release [i, x[i], y]
+                    transitionCounterMap.merge("from SM1_0 to SM1_1 {[y > 20; x[i] = 0; y = 0]}", 1, Integer::sum);
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 }  else { // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}
                     y = y + 1;
                     lockManager.unlock(0, 2 + i, 1); // Release [i, x[i], y]
+                    transitionCounterMap.merge("from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}", 1, Integer::sum);
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 } 
@@ -373,6 +413,7 @@ public class TestIndex {
                         lockManager.lock(2 + i); // Request [x[i]]
                         x[i] = x[i] + 1;
                         lockManager.unlock(0, 2 + i); // Release [i, x[i]]
+                        transitionCounterMap.merge("from SM1_1 to SM1_0 {x[i] = x[i] + 1}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 1:
@@ -380,6 +421,7 @@ public class TestIndex {
                         lockManager.lock(0, 2, 3); // Request [i, x[0], x[1]]
                         x[i] = x[x[i + 1]] + 1;
                         lockManager.unlock(0, 2, 3); // Release [i, x[0], x[1]]
+                        transitionCounterMap.merge("from SM1_1 to SM1_0 {x[i] = x[x[i + 1]] + 1}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     default:
@@ -390,16 +432,22 @@ public class TestIndex {
             // Execute method
             private void exec() {
                 boolean result;
-                while(transition_counter < COUNTER_BOUND) {
+                Instant start = Instant.now();
+                while(transitionCounter < COUNTER_BOUND) {
                     result = exec_SM1_0();
 
                     // Increment counter
-                    transition_counter++;
+                    transitionCounter++;
                     if(result) {
-                        successful_transition_counter++;
+                        successful_transitionCounter++;
                     }
                 }
-                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+                System.out.println("P.SM1: " + successful_transitionCounter + "/" + transitionCounter + " (successful/total transitions)");
+                Instant finish = Instant.now();
+                System.out.println("Thread P.SM1 finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+                System.out.println("Transition count:");
+                transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+                System.out.println();
             }
 
             // Run method
@@ -462,10 +510,13 @@ public class TestIndex {
             private final Random random;
 
             // Counter of main while-loop iterations
-            long transition_counter;
+            long transitionCounter;
 
             // Counter for successful iterations
-            long successful_transition_counter;
+            long successful_transitionCounter;
+
+            // A counter for the transitions.
+            private HashMap<String, Integer> transitionCounterMap;
 
             // The lock manager.
             private final LockManager lockManager;
@@ -474,7 +525,8 @@ public class TestIndex {
             SM1Thread (LockManager lockManager) {
                 random = new Random();
                 this.lockManager = lockManager;
-                transition_counter = 0;
+                transitionCounter = 0;
+                transitionCounterMap = new HashMap<>();
                 currentState = SM1Thread.States.SM1_0;
             }
 
@@ -485,6 +537,7 @@ public class TestIndex {
                         lockManager.lock(0, 1, 4); // Request [i[0], i[1], y[0]]
                         i[0] = i[y[0]];
                         lockManager.unlock(0, 1, 4); // Release [i[0], i[1], y[0]]
+                        transitionCounterMap.merge("from SM1_0 to SM1_0 {i[0] = i[y[0]]}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 1:
@@ -493,6 +546,7 @@ public class TestIndex {
                         lockManager.lock(2, 2 + i[0]); // Request [x[0], x[i[0]]]
                         x[0] = x[i[0]];
                         lockManager.unlock(0, 2, 2 + i[0]); // Release [i[0], x[0], x[i[0]]]
+                        transitionCounterMap.merge("from SM1_0 to SM1_0 {x[0] = x[i[0]]}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 2:
@@ -501,6 +555,7 @@ public class TestIndex {
                         lockManager.lock(4, 4 + x[0]); // Request [y[0], y[x[0]]]
                         y[0] = y[x[0]];
                         lockManager.unlock(2, 4, 4 + x[0]); // Release [x[0], y[0], y[x[0]]]
+                        transitionCounterMap.merge("from SM1_0 to SM1_0 {y[0] = y[x[0]]}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     default:
@@ -511,16 +566,22 @@ public class TestIndex {
             // Execute method
             private void exec() {
                 boolean result;
-                while(transition_counter < COUNTER_BOUND) {
+                Instant start = Instant.now();
+                while(transitionCounter < COUNTER_BOUND) {
                     result = exec_SM1_0();
 
                     // Increment counter
-                    transition_counter++;
+                    transitionCounter++;
                     if(result) {
-                        successful_transition_counter++;
+                        successful_transitionCounter++;
                     }
                 }
-                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+                System.out.println("Q.SM1: " + successful_transitionCounter + "/" + transitionCounter + " (successful/total transitions)");
+                Instant finish = Instant.now();
+                System.out.println("Thread Q.SM1 finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+                System.out.println("Transition count:");
+                transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+                System.out.println();
             }
 
             // Run method
@@ -578,10 +639,13 @@ public class TestIndex {
             private final Random random;
 
             // Counter of main while-loop iterations
-            long transition_counter;
+            long transitionCounter;
 
             // Counter for successful iterations
-            long successful_transition_counter;
+            long successful_transitionCounter;
+
+            // A counter for the transitions.
+            private HashMap<String, Integer> transitionCounterMap;
 
             // Thread local variables
             private int[] y;
@@ -595,7 +659,8 @@ public class TestIndex {
             SM1Thread (LockManager lockManager) {
                 random = new Random();
                 this.lockManager = lockManager;
-                transition_counter = 0;
+                transitionCounter = 0;
+                transitionCounterMap = new HashMap<>();
                 currentState = SM1Thread.States.SM1_0;
                 y = new int[] {0, 0};
                 x = new int[] {0, 0};
@@ -607,16 +672,19 @@ public class TestIndex {
                     case 0:
                         // from SM1_0 to SM1_0 {i[0] = i[y[0]]}
                         i[0] = i[y[0]];
+                        transitionCounterMap.merge("from SM1_0 to SM1_0 {i[0] = i[y[0]]}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 1:
                         // from SM1_0 to SM1_0 {x[0] = x[i[0]]}
                         x[0] = x[i[0]];
+                        transitionCounterMap.merge("from SM1_0 to SM1_0 {x[0] = x[i[0]]}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     case 2:
                         // from SM1_0 to SM1_0 {y[0] = y[x[0]]}
                         y[0] = y[x[0]];
+                        transitionCounterMap.merge("from SM1_0 to SM1_0 {y[0] = y[x[0]]}", 1, Integer::sum);
                         currentState = SM1Thread.States.SM1_0;
                         return true;
                     default:
@@ -627,16 +695,22 @@ public class TestIndex {
             // Execute method
             private void exec() {
                 boolean result;
-                while(transition_counter < COUNTER_BOUND) {
+                Instant start = Instant.now();
+                while(transitionCounter < COUNTER_BOUND) {
                     result = exec_SM1_0();
 
                     // Increment counter
-                    transition_counter++;
+                    transitionCounter++;
                     if(result) {
-                        successful_transition_counter++;
+                        successful_transitionCounter++;
                     }
                 }
-                System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+                System.out.println("R.SM1: " + successful_transitionCounter + "/" + transitionCounter + " (successful/total transitions)");
+                Instant finish = Instant.now();
+                System.out.println("Thread R.SM1 finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+                System.out.println("Transition count:");
+                transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+                System.out.println();
             }
 
             // Run method
@@ -675,7 +749,11 @@ public class TestIndex {
     TestIndex() {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
+            new M(0, new int[] {0, 0}, new int[] {0, 0}, new int[] {0, 0}),
+            new N(new int[] {0, 0}, new int[] {0, 0}, new int[] {0, 0}),
             new P(0, new int[] {0, 0}, 0),
+            new Q(new int[] {0, 0}, new int[] {0, 0}, new int[] {0, 0}),
+            new R(),
         };
     }
 

@@ -1,5 +1,6 @@
 import jinja2
 
+import settings
 from java_instruction_conversion import get_instruction
 from jinja2_view_models import get_decision_block_tree
 from smt_functions import z3_truth_check
@@ -66,24 +67,25 @@ def get_guard_statement(model):
         return " || ".join([get_instruction(e) for e in model.encapsulating_guard_expression])
 
 
-def render_model(model, add_counter):
+def render_model(model):
     return java_model_template.render(
         model=model,
-        add_counter=add_counter
+        add_counter=settings.add_counter,
+        add_performance_counter=settings.add_performance_counter
     )
 
 
-def render_class(model, add_counter):
+def render_class(model):
     return java_class_template.render(
-        model=model,
-        add_counter=add_counter
+        model=model
     )
 
 
-def render_state_machine(model, add_counter, c):
+def render_state_machine(model, c):
     return java_state_machine_template.render(
         model=model,
-        add_counter=add_counter,
+        add_counter=settings.add_counter,
+        add_performance_counter=settings.add_performance_counter,
         _c=c
     )
 
@@ -105,9 +107,11 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
             target=model.target,
             state_machine_name=sm.name,
             release_locks=model.release_locks,
-            _c=sm.parent_class,
             always_fails=model.always_fails,
-            comment=model.comment if include_comment else None
+            comment=model.comment if include_comment else None,
+            _c=sm.parent_class,
+            add_performance_counter=settings.add_performance_counter,
+            transition_identifier=model.comment
         )
     elif model_class == "Composite":
         guard = get_instruction(model.guard) if not model.guard.is_trivially_satisfiable and include_guard else None
@@ -200,8 +204,8 @@ def construct_decision_code(model, sm, requires_lock=True, include_guard=True, i
             release_locks=model.release_locks,
             target_locks=model.target_locks,
             choices=choices,
-            _c=sm.parent_class,
-            else_choice=else_choice
+            else_choice=else_choice,
+            _c=sm.parent_class
         )
     elif model_class == "DeterministicCaseDistinctionBlock":
         # Several of the choices may have the same conversion string. Filter these out and merge.

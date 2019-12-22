@@ -47,7 +47,10 @@ model TestIndex {
               [y <= 10; y := y + 1]
 			}
 			from SM1_0 to SM1_1 {
-              [y > 10; x[i] := 0; y := 0]
+              [y > 10 and y <= 20; x[i] := 0; y := 0]
+			}
+			from SM1_0 to SM1_1 {
+              [y > 20; x[i] := 0; y := 0]
 			}
 			from SM1_1 to SM1_0 {
               x[i] := x[i] + 1
@@ -91,5 +94,5 @@ model TestIndex {
 			}
 	    }
 	}
-	objects p: P()
+	objects m: M(), n: N(), p: P(), q: Q(), r: R()
 }

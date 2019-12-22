@@ -13,6 +13,9 @@ lockManager.unlock({{release_locks | to_comma_separated_lock_id_list(_c)}}); // 
 {% if always_fails %}
 return false;
 {%- else %}
+{% if add_performance_counter %}
+transitionCounterMap.merge("{{transition_identifier}}", 1, Integer::sum);
+{% endif %}
 currentState = {{state_machine_name}}Thread.States.{{target}};
 return true;
 {%- endif %}

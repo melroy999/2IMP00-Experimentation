@@ -13,10 +13,15 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     {% if add_counter %}
 
     // Counter of main while-loop iterations
-    long transition_counter;
+    long transitionCounter;
 
     // Counter for successful iterations
-    long successful_transition_counter;
+    long successful_transitionCounter;
+
+    {% endif %}
+    {% if add_performance_counter %}
+    // A counter for the transitions.
+    private HashMap<String, Integer> transitionCounterMap;
 
     {% endif %}
     {% if model.variables | length > 0 %}
@@ -34,7 +39,10 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
         random = new Random();
         this.lockManager = lockManager;
         {% if add_counter %}
-        transition_counter = 0;
+        transitionCounter = 0;
+        {% endif %}
+        {% if add_performance_counter %}
+        transitionCounterMap = new HashMap<>();
         {% endif %}
         currentState = {{model.name}}Thread.States.{{model.initialstate}};
         {% for v in model.variables %}
@@ -62,11 +70,14 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
     {% endfor %}
     // Execute method
     private void exec() {
-        {% if add_counter %}
+        {% if add_performance_counter %}
         boolean result;
         {% endif %}
+        {% if add_performance_counter %}
+        Instant start = Instant.now();
+        {% endif %}
         {% if add_counter %}
-        while(transition_counter < COUNTER_BOUND) {
+        while(transitionCounter < COUNTER_BOUND) {
         {% else %}
         while(true) {
         {% endif %}
@@ -94,12 +105,21 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
             {% if add_counter %}
 
             // Increment counter
-            transition_counter++;
+            transitionCounter++;
+            {% if add_performance_counter %}
             if(result) {
-                successful_transition_counter++;
+                successful_transitionCounter++;
             }
+            {% endif %}
         }
-        System.out.println(this.getClass().getSimpleName() + ": " + successful_transition_counter + "/" + transition_counter + " (successful/total transitions)");
+        {% if add_performance_counter %}
+        System.out.println("{{_c.name}}.{{model.name}}: " + successful_transitionCounter + "/" + transitionCounter + " (successful/total transitions)");
+        Instant finish = Instant.now();
+        System.out.println("Thread {{_c.name}}.{{model.name}} finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+        System.out.println("Transition count:");
+        transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+        System.out.println();
+        {% endif %}
         {% endif %}
     }
 
