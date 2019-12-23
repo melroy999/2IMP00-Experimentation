@@ -81,7 +81,7 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
         {% else %}
         while(true) {
         {% endif %}
-            {% if currentState | length > 0 %}
+            {% if model.states | length > 0 %}
             switch(currentState) {
                 {% for s in model.states %}
                 case {{s}}:

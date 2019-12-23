@@ -1,0 +1,270 @@
+import java.util.Random;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.Arrays;
+{% if add_performance_counter %}
+import java.util.HashMap;
+import java.time.Duration;
+import java.time.Instant;
+{% endif %}
+
+// main class
+public class {{model.name}} {
+  // The threads
+  {% for c in model.classes %}
+  {% for sm in c.statemachines %}
+  java_{{sm.name}}Thread java_T_{{sm.name}};
+  {% endfor %}
+  {% endfor %}
+
+  {% if add_counter %}
+  // Upperbound for transition counter
+  public static final long java_COUNTER_BOUND = 10000000L;
+
+  {% endif %}
+  // Enum type for state machine states
+  public enum java_State {
+  {% for s in states %}{{'  ' if loop.first }}{{s}}{{', ' if not loop.last }}{% endfor %}
+
+  }
+
+  // Global variables
+  {% for c in model.classes %}
+  {% for v in c.variables %}
+  public volatile {{v.type|javatype(False)}} {{v.name}};
+  {% endfor %}
+
+	// Lock class to handle locks of global variables
+	class java_Keeper {
+    // The locks
+    ReentrantLock[] locks;
+    // Which locks need to be acquired?
+    boolean[] lockneeded;
+
+		// Constructor
+		java_Keeper() {
+			locks = new ReentrantLock[{{numberofelemvariables}}];
+			lockneeded = new boolean[] { {% for v in lockneeded %}{{v|lower}}{{',' if not loop.last }}{% endfor %} };
+			for (int i = 0; i < {{numberofelemvariables}}; i++) {
+				locks[i] = new ReentrantLock(true);
+			}
+		}
+
+		// Lock method
+		public void lock(int[] l, int size) {
+			for (int i = 0; i < size; i++) {
+				if (lockneeded[l[i]]) {
+          			locks[l[i]].lock();
+        		}
+      		}
+		}
+
+		// Unlock method
+		public void unlock(int[] l, int size) {
+			for (int i = 0; i < size; i++) {
+				if (lockneeded[l[i]]) {
+          			locks[l[i]].unlock();
+        		}
+      		}
+		}
+	}
+	{% endfor %}
+
+	{% for o in model.objects %}
+	{% set c = o.type %}
+	{% for sm in c.statemachines %}
+	class java_{{sm.name}}Thread extends Thread {
+		private Thread java_t;
+		private String java_threadName = "{{sm.name}}Thread";
+		// Current state
+		private {{model.name}}.java_State java_currentState;
+		// Random number generator to handle non-determinism
+		private Random java_randomGenerator;
+		{% if add_counter %}
+		// Counter of main while-loop iterations
+		long java_transcounter;
+		{% endif %}
+		{% if add_performance_counter %}
+		// Counter of main while-loop iterations that are successful
+		long java_successful_transcounter;
+        // A counter for the transitions.
+        private HashMap<String, Integer> transitionCounterMap;
+		{% endif %}
+		// Keeper of global variables
+		private {{model.name}}.java_Keeper java_kp;
+		// Array to store IDs of locks to be acquired
+		private int[] java_lockIDs;
+		// Thread local variables
+		{% for v in sm.variables %}
+		private {{v.type|javatype(False)}} {{v.name}};
+		{% endfor %}
+
+		// Constructor
+		java_{{sm.name}}Thread ({{model.name}}.java_Keeper java_k) {
+			java_randomGenerator = new Random();
+			{% if add_counter %}
+			java_transcounter = 0;
+			{% endif %}
+			java_currentState = {{model.name}}.java_State.{{sm.initialstate.name}};
+            java_kp = java_k;
+            java_lockIDs = new int[{{sm|maxnumbervarids}}];
+			{% for v in sm.variables %}
+			{{v.name}} = {% if v.type.size > 1 %}new {{v.type|javatype(False)}} {% endif %}{{v|variabledefault}};
+			{% endfor %}
+            {% if add_performance_counter %}
+            transitionCounterMap = new HashMap<>();
+            {% endif %}
+		}
+
+		// Transition functions
+        {% for s in sm.states %}
+        {% for t in s|outgoingtrans(sm.transitions) %}
+        
+        boolean execute_{{t.source.name}}_{{loop.index0}}() {
+          {% for st in t.statements %}
+          {% set stloop = loop %}
+          // {{st|getlabel}}
+          {% set varids = st|getvarids(sm) %}
+          {% for id in varids %}
+          //System.out.println("{{sm.name}}_{{s.name}}_{{loop.index0}}");
+          java_lockIDs[{{loop.index0}}] = {{id}};
+          {% endfor %}
+          {% if varids|length > 0 %}
+          //System.out.println("{{sm.name}}_{{s.name}}_{{i}}_sort");
+          Arrays.sort(java_lockIDs,0,{{varids|length}});
+          //System.out.println("{{sm.name}}_{{s.name}}_{{i}}_lock");
+          java_kp.lock(java_lockIDs, {{varids|length}});
+          {% endif %}
+          {{st|javastatement(varids|length,10,True,o,True,False)}}
+          {% if varids|length > 0 %}
+          //System.out.println("{{sm.name}}_{{s.name}}_{{i}}_unlock");
+          java_kp.unlock(java_lockIDs, {{varids|length}});
+          {% endif %}
+          {% endfor %}
+          {% if add_performance_counter %}
+          transitionCounterMap.merge("{{t | get_identifier}}", 1, Integer::sum);
+          {% endif %}
+          return true;
+        }
+        {% endfor %}
+        {% endfor %}
+
+		// Execute method
+		public void exec() {
+			// variable to store non-deterministic choices
+			int java_choice;
+            {% if add_performance_counter %}
+            Instant start = Instant.now();
+            {% endif %}
+			{% if add_counter %}
+			while(java_transcounter < java_COUNTER_BOUND) {
+			{% else %}
+			while(true) {
+			{% endif %}
+			    {% if add_counter %}
+				//System.out.println(java_transcounter);
+				{% endif %}
+				switch(java_currentState) {
+					{% for s in sm.states|select("hasoutgoingtrans", sm.transitions) %}
+					case {{s.name}}:
+						{% if add_counter %}
+						//System.out.println("{{sm.name}}_{{s.name}} " + java_transcounter);
+						{% endif %}
+						{% set sout = s|outgoingtrans(sm.transitions) %}
+						{% if sout|length > 1 %}
+						java_choice = java_randomGenerator.nextInt({{sout|length}});
+						switch(java_choice) {
+							{% for i in range(0,sout|length) %}
+							case {{i}}:
+								//System.out.println("{{sm.name}}_{{s.name}}_{{i}}");
+								if (execute_{{s.name}}_{{i}}()) {
+								  // Change state
+								  //System.out.println("{{sm.name}}_{{s.name}}_{{i}}_changestate");
+								  java_currentState = {{model.name}}.java_State.{{sout[i].target.name}};
+								  {% if add_performance_counter %}
+								  // Increment counter
+								  //System.out.println("{{sm.name}}_{{s.name}}_{{i}}_increment");
+								  java_successful_transcounter++;
+								  {% endif %}
+								}
+								break;
+							{% endfor %}
+						}
+						break;
+					  {% else %}
+                        if (execute_{{s.name}}_0()) {
+						  // Change state
+						  java_currentState = {{model.name}}.java_State.{{sout[0].target.name}};
+						  {% if add_performance_counter %}
+						  // Increment counter
+						  java_successful_transcounter++;
+						  {% endif %}
+						}
+						break;
+                      {% endif %}
+					{% endfor %}
+					default:
+						return;
+				}
+				{% if add_counter %}
+                // Increment counter
+                java_transcounter++;
+                {% endif %}
+			}
+			{% if add_performance_counter %}
+            System.out.println("{{o.type.name}}.{{sm.name}}: " + java_successful_transcounter + "/" + java_transcounter + " (successful/total transitions)");
+            Instant finish = Instant.now();
+            System.out.println("Thread {{o.type.name}}.{{sm.name}} finished after " + Duration.between(start, finish).toMillis() + " milliseconds.");
+            System.out.println("Transition count:");
+            transitionCounterMap.forEach((key, value) -> System.out.println(key + ", " + value));
+            System.out.println();
+            {% endif %}
+		}
+
+		// Run method
+		public void run() {
+			exec();
+		}
+	}
+	{% endfor %}
+
+	// Constructor for main class
+	{{model.name}}() {
+		// Instantiate global variables
+		{% for v in c.variables %}
+		{{v.name}} = {% if v.type.size > 1 %}new {{v.type|javatype(False)}} {% endif %}{{v|initialvalue(o)}};
+		{% endfor %}
+		{{model.name}}.java_Keeper java_k = new {{model.name}}.java_Keeper();
+		{% for sm in c.statemachines %}
+		java_T_{{sm.name}} = new {{model.name}}.java_{{sm.name}}Thread(java_k);
+		{% endfor %}
+	}
+
+	// Start all threads
+	public void startThreads() {
+		{% for sm in c.statemachines %}
+		java_T_{{sm.name}}.start();
+		{% endfor %}
+	}
+
+	// Join all threads
+	public void joinThreads() {
+		while (true) {
+			try {
+				{% for sm in c.statemachines %}
+				java_T_{{sm.name}}.join();
+				{% endfor %}
+				break;
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	// Run application
+	public static void main(String args[]) {
+    {{model.name}} java_ap = new {{model.name}}();
+    java_ap.startThreads();
+    java_ap.joinThreads();
+	}
+	{% endfor %}
+}

@@ -1,0 +1,98 @@
+model TestIndex {
+    actions a
+
+	classes
+	M {
+      variables Integer[2] z Integer[2] y Integer[2] x Integer i
+	  state machines
+	    SM1 {
+		  initial SM1_0
+		  transitions
+			from SM1_0 to SM1_0 {
+              x[y[i]] = 1
+			}
+			from SM1_0 to SM1_0 {
+              y[z[i]] = 1
+			}
+			from SM1_0 to SM1_0 {
+              z[x[i]] = 1
+			}
+	    }
+	}
+	N {
+      variables Integer[2] z Integer[2] y Integer[2] x
+	  state machines
+	    SM1 {
+	      variables Integer i
+		  initial SM1_0
+		  transitions
+			from SM1_0 to SM1_0 {
+              x[y[i]] = 1
+			}
+			from SM1_0 to SM1_0 {
+              y[z[i]] = 1
+			}
+			from SM1_0 to SM1_0 {
+              z[x[i]] = 1
+			}
+	    }
+	}
+	P {
+      variables Integer y Integer[2] x Integer i
+	  state machines
+	    SM1 {
+		  initial SM1_0 states SM1_1
+		  transitions
+			from SM1_0 to SM1_1 {
+              [y <= 10; y := y + 1]
+			}
+			from SM1_0 to SM1_1 {
+              [y > 10 and y <= 20; x[i] := 0; y := 0]
+			}
+			from SM1_0 to SM1_1 {
+              [y > 20; x[i] := 0; y := 0]
+			}
+			from SM1_1 to SM1_0 {
+              x[i] := x[i] + 1
+			}
+			from SM1_1 to SM1_0 {
+              x[i] := x[x[i + 1]] + 1
+			}
+	    }
+	}
+	Q {
+      variables Integer[2] y Integer[2] x Integer[2] i
+	  state machines
+	    SM1 {
+		  initial SM1_0
+		  transitions
+			from SM1_0 to SM1_0 {
+              y[0] := y[x[0]]
+			}
+			from SM1_0 to SM1_0 {
+              x[0] := x[i[0]]
+            }
+			from SM1_0 to SM1_0 {
+              i[0] := i[y[0]]
+			}
+	    }
+	}
+	R {
+	  state machines
+	    SM1 {
+		  variables Integer[2] y Integer[2] x Integer[2] i
+		  initial SM1_0
+		  transitions
+			from SM1_0 to SM1_0 {
+              y[0] := y[x[0]]
+			}
+			from SM1_0 to SM1_0 {
+              x[0] := x[i[0]]
+            }
+			from SM1_0 to SM1_0 {
+              i[0] := i[y[0]]
+			}
+	    }
+	}
+	objects m: M(), n: N(), p: P(), q: Q(), r: R()
+}

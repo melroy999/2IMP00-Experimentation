@@ -5,5 +5,7 @@
 __pycache__/
 SLCOtoJAVA2.0_det/.idea/
 SLCOtoJAVA2.0_det/out/
+SLCOtoJAVA2.0/.idea/
+SLCOtoJAVA2.0/out/
 
 .idea/workspace.xml
