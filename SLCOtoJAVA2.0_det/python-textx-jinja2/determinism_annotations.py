@@ -5,16 +5,18 @@ from smt_functions import to_smt_format_string, z3_opr_check
 
 
 def print_decision_groups(tree, d=1):
+    """Print the decision hierarchy with tab indents"""
     if tree.__class__.__name__ == "Transition":
-        print("%s%s" % ("\t" * d, tree))
+        print("%s- %s" % ("\t" * d, tree))
     else:
         choice_type, members = tree
-        print("%s%s" % ("\t" * d, choice_type))
+        print("%s- %s" % ("\t" * d, choice_type))
         for t in sorted(members, key=lambda v: v.__class__.__name__ != "Transition"):
             print_decision_groups(t, d + 1)
 
 
 def print_determinism_report(state, sm, transitions, trivially_satisfiable, trivially_unsatisfiable):
+    """Print a formatted report of the decision structure for the given state"""
     print("#" * 120)
     print("State Machine:", sm.name)
     print("State:", state)
@@ -40,11 +42,6 @@ def print_determinism_report(state, sm, transitions, trivially_satisfiable, triv
     print_decision_groups(sm.groupings[state])
     print("#" * 120)
     print()
-
-
-#
-#
-#
 
 
 class Decision(Enum):

@@ -98,6 +98,7 @@ def propagate_lock_variables(model, class_variables):
 
 
 class Node:
+    """A simple node class used in the adjacency graph"""
     def __init__(self, key):
         self.predecessors = set([])
         self.successors = set([])
@@ -122,6 +123,7 @@ class Node:
 
 
 def construct_variable_dependency_graph(model, variable_to_node, target_variables, variable_stack=None):
+    """Construct a variable dependency graph, where a variable depends on another if it is used in the index"""
     if variable_stack is None:
         variable_stack = []
     if model is None:
@@ -226,6 +228,7 @@ def assign_lock_ids_to_class_variables(model):
 
 
 def order_lock_ids(v, name_to_variable):
+    """Get the lock id of the given variable, used for sorting purposes"""
     variable, index = v
     try:
         offset = int(index)
@@ -235,6 +238,7 @@ def order_lock_ids(v, name_to_variable):
 
 
 def correct_dependency_graph(variable_dependency_graph, name_to_variable, lock_ids=None):
+    """Remove all dependencies that violate the lock id ordering, and decompose array lock requests when appropriate."""
     # If a node has a dependency on a higher id node, remove all dependencies of the node.
     # Remove superfluous lock id statements--all original lock id statements starting with the variable are superfluous.
     for node in variable_dependency_graph.values():
@@ -253,6 +257,7 @@ def correct_dependency_graph(variable_dependency_graph, name_to_variable, lock_i
 
 
 def get_locking_phases(variable_dependency_graph, name_to_variable, lock_ids):
+    """Convert the list of lock ids to locking phases, adhering to the given dependency graph"""
     # Break the lock id list into different phases, following the dependency graph.
     lock_id_ordering = sorted(lock_ids, key=lambda v: order_lock_ids(v, name_to_variable))
     lock_variable_phases = []
@@ -285,6 +290,9 @@ def get_locking_phases(variable_dependency_graph, name_to_variable, lock_ids):
 
 
 def add_lock_ordering_corrections(model, name_to_variable):
+    """Correct the ordering by removing circular dependencies that violate the lock id ordering,
+    and convert the list of locks to phase system such that locks depending on variable values
+    are only requested once said dependency is locked"""
     # Construct a variable dependency graph for the statement.
     variable_dependency_graph = {}
     construct_variable_dependency_graph(model, variable_dependency_graph, set(name_to_variable.keys()))
@@ -297,6 +305,7 @@ def add_lock_ordering_corrections(model, name_to_variable):
 
 
 def construct_valid_lock_order(model):
+    """Construct a phased lock ordering for all transitions in the given class"""
     for sm in model.statemachines:
         for t in sm.transitions:
             add_lock_ordering_corrections(t.guard, model.name_to_variable)

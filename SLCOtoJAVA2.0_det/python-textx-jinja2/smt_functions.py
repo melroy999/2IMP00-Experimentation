@@ -64,6 +64,7 @@ def to_simple_ast(ast):
 
 
 def to_z3_format_rec(ast, variables):
+    """Recursively convert the smt tree structure to a smt2.0 string"""
     # Base types can be returned as-is.
     if type(ast) in (str, int, float, bool):
         return str(ast).lower()
@@ -106,6 +107,7 @@ def to_z3_format_rec(ast, variables):
 
 
 def to_smt_format_string(ast):
+    """Convert the smt tree structure to a smt2.0 string, and cache the conversion"""
     if ast in conversion_cache:
         parsed, used_vars = conversion_cache[ast]
     else:
@@ -117,6 +119,7 @@ def to_smt_format_string(ast):
 
 
 def __generate_z3_variable_declarations(used_variables, variables):
+    """Generate the smt2.0 variables declaration entries"""
     used_var_types = {
         v: "Bool" if variables[v_base].type.base == "Boolean" else "Int" for v, v_base in used_variables.items()
     }
@@ -124,14 +127,17 @@ def __generate_z3_variable_declarations(used_variables, variables):
 
 
 def __to_z3_assertion(smt_string, variable_declarations):
+    """Create an assertion string for the given variable declarations and smt2.0 string"""
     return "%s (assert %s)" % (variable_declarations, smt_string)
 
 
 def __to_z3_object(smt_string):
+    """Convert the smt2.0 string to a z3 object"""
     return z3.parse_smt2_string(smt_string)
 
 
 def to_z3_format(ast, variables):
+    """Convert the given smt tree structure to a z3 object, given a list of used variables"""
     parsed, used_variables = to_smt_format_string(ast)
     variable_declarations = __generate_z3_variable_declarations(used_variables, variables)
     assertion = __to_z3_assertion(parsed, variable_declarations)
@@ -139,6 +145,7 @@ def to_z3_format(ast, variables):
 
 
 def z3_truth_check(ast, variables, for_all=True):
+    """Check whether the given smt tree structure always holds true (default), or has a satisfiable assignment (alt)"""
     parsed, used_variables = to_smt_format_string(ast)
     variable_declarations = __generate_z3_variable_declarations(used_variables, variables)
     result = __z3_check_truth(for_all, parsed, variable_declarations)
@@ -147,6 +154,8 @@ def z3_truth_check(ast, variables, for_all=True):
 
 
 def z3_opr_check(binary_operator, ast1, ast2, variables, for_all=False):
+    """Check whether the given smt tree structures have a common solution under the given operator (default) or
+    check whether the combination under the operator always holds true (alt)"""
     parsed_1, used_variables_1 = to_smt_format_string(ast1)
     parsed_2, used_variables_2 = to_smt_format_string(ast2)
     variable_declarations = __generate_z3_variable_declarations({**used_variables_1, **used_variables_2}, variables)
@@ -157,6 +166,8 @@ def z3_opr_check(binary_operator, ast1, ast2, variables, for_all=False):
 
 
 def __z3_check_truth(for_all, parsed, variable_declarations):
+    """Check the truth of the given z3 object. for_all specifies if it must hold for all values,
+    or whether just a single satisfiable assignment should exist"""
     if for_all:
         parsed = "(not %s)" % parsed
     _assertion = __to_z3_assertion(parsed, variable_declarations)

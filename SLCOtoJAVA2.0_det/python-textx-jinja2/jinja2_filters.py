@@ -29,15 +29,18 @@ def get_default_variable_value(model):
 
 
 def comma_separated_list(model):
+    """Construct a comma separated list of the given iterable"""
     return ", ".join(model)
 
 
 def get_variable_list(model):
+    """Construct a comma separated list of variables, sorted on by name and prefixed with their type"""
     variables = ["%s %s" % (get_java_type(_v.type, False), _v.name) for _v in sorted(model, key=lambda v: v.name)]
     return comma_separated_list(variables)
 
 
 def get_variable_instantiation_list(model, variables):
+    """Construct a comma separated list of variable initializations sorted on by name"""
     instantiated_variables = {
         _v.left.name: _v.right for _v in model
     }
@@ -57,6 +60,7 @@ def get_variable_instantiation_list(model, variables):
 
 
 def get_guard_statement(model):
+    """Construct an or-code-clause encapsulating all guard expressions for the target decision block"""
     if model.__class__.__name__ == "TransitionBlock":
         return get_instruction(model.guard_expression)
     else:
@@ -68,6 +72,7 @@ def get_guard_statement(model):
 
 
 def render_model(model):
+    """Convert the SLCO model to Java code"""
     return java_model_template.render(
         model=model,
         add_counter=settings.add_counter,
@@ -76,12 +81,14 @@ def render_model(model):
 
 
 def render_class(model):
+    """Convert the SLCO class to Java code"""
     return java_class_template.render(
         model=model
     )
 
 
 def render_state_machine(model, c):
+    """Convert the SLCO state machine to Java code"""
     return java_state_machine_template.render(
         model=model,
         add_counter=settings.add_counter,
@@ -91,6 +98,7 @@ def render_state_machine(model, c):
 
 
 def construct_decision_code(model, sm, requires_lock=True, include_guard=True, include_comment=True):
+    """Convert the decision structure to Java code"""
     model_class = model.__class__.__name__
     if model_class == "TransitionBlock":
         if not model.starts_with_composite:
@@ -244,10 +252,12 @@ def get_decision_structure(model, sm):
 
 
 def to_comma_separated_lock_name_list(model):
+    """Construct a comma separated list containing all the lock names for cross verification, sorted on variable name"""
     return ", ".join([v[0] + ("" if v[1] is None else "[%s]" % v[1]) for v in sorted(model)])
 
 
 def to_comma_separated_lock_id_list(model, c):
+    """Construct a comma separated list of all the targeted lock ids, sorted on variable name"""
     lock_ids = []
     for v in sorted(model):
         base = c.name_to_variable[v[0]].lock_id

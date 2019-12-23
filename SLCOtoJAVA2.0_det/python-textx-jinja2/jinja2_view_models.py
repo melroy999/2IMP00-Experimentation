@@ -133,6 +133,7 @@ class TransitionBlock:
 
 
 def construct_decision_block_tree(model):
+    """Convert the determinism groupings to their associated view models"""
     if model.__class__.__name__ == "Transition":
         # Create a transition block.
         return TransitionBlock(model)
@@ -201,6 +202,7 @@ def construct_decision_block_tree(model):
 
 
 def propagate_acquire_locks(model, name_to_variable):
+    """Propagate the locks to acquire over the choice block view models"""
     model_class = model.__class__.__name__
     if model_class == "NonDeterministicBlock":
         for block in model.choice_blocks:
@@ -221,6 +223,7 @@ def propagate_acquire_locks(model, name_to_variable):
 
 
 def propagate_release_locks(model, acquired_locks):
+    """Propagate the locks to release over the choice block view models"""
     model_class = model.__class__.__name__
     if model_class == "TransitionBlock":
         # Create a copy of the set, since it is mutable.
@@ -252,6 +255,7 @@ def propagate_release_locks(model, acquired_locks):
 
 
 def get_decision_block_tree(model, class_object):
+    """Convert the decision groups to their view model representation with the appropriate data"""
     decision_tree = construct_decision_block_tree(model)
 
     # Ensure that the acquire lock tags are set correctly.
