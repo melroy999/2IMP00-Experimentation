@@ -51,6 +51,10 @@ public class TestSimple {
         // The threads
         private final SM1Thread T_SM1;
 
+        // Global variables
+        private volatile int y; // Lock id 2
+        private volatile int[] x; // Lock id 0
+
         interface P_SM1Thread_States {
             enum States {
                 SM1_0, SM1_1
@@ -73,10 +77,6 @@ public class TestSimple {
             // A counter for the transitions.
             private HashMap<String, Integer> transitionCounterMap;
 
-            // Thread local variables
-            private int y;
-            private int[] x;
-
             // The lock manager.
             private final LockManager lockManager;
 
@@ -87,19 +87,20 @@ public class TestSimple {
                 transitionCounter = 0;
                 transitionCounterMap = new HashMap<>();
                 currentState = SM1Thread.States.SM1_0;
-                y = 0;
-                x = new int[] {0, 0};
             }
 
             private boolean exec_SM1_0() {
+                lockManager.lock(0, 2); // Request [x[0], y]
                 if (y > 10) { // from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]} 
                     x[0] = 0;
                     y = 0;
+                    lockManager.unlock(0, 2); // Release [x[0], y]
                     transitionCounterMap.merge("from SM1_0 to SM1_1 {[y > 10; x[0] = 0; y = 0]}", 1, Integer::sum);
                     currentState = SM1Thread.States.SM1_1;
                     return true;
                 }  else { // from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}
                     y = y + 1;
+                    lockManager.unlock(0, 2); // Release [x[0], y]
                     transitionCounterMap.merge("from SM1_0 to SM1_1 {[y <= 10; y = y + 1]}", 1, Integer::sum);
                     currentState = SM1Thread.States.SM1_1;
                     return true;
@@ -108,7 +109,9 @@ public class TestSimple {
 
             private boolean exec_SM1_1() {
                 // from SM1_1 to SM1_0 {x[0] = x[0] + 1}
+                lockManager.lock(0); // Request [x[0]]
                 x[0] = x[0] + 1;
+                lockManager.unlock(0); // Release [x[0]]
                 transitionCounterMap.merge("from SM1_1 to SM1_0 {x[0] = x[0] + 1}", 1, Integer::sum);
                 currentState = SM1Thread.States.SM1_0;
                 return true;
@@ -151,11 +154,13 @@ public class TestSimple {
         }
 
         // Constructor for main class
-        P() {
+        P(int[] x, int y) {
             // Create a lock manager.
-            LockManager lockManager = new LockManager(0);
+            LockManager lockManager = new LockManager(3);
 
             // Instantiate global variables
+            this.y = y;
+            this.x = x;
             T_SM1 = new P.SM1Thread(lockManager);
         }
 
@@ -180,7 +185,7 @@ public class TestSimple {
     TestSimple() {
         //Instantiate the objects.
         objects = new SLCO_Class[] {
-            new P(),
+            new P(new int[] {0, 0}, 0),
         };
     }
 

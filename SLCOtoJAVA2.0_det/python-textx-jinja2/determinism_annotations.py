@@ -55,16 +55,9 @@ class Decision(Enum):
 
 def dissect_overlapping_transition_chain(transitions, variables, truth_matrices):
     """Dissect a list of transitions with a non-interrupted chain of overlap"""
-    if len(transitions) == 1:
-        return transitions[0]
-
-    # Example input:
-    # x -------    --------
-    # y     --------
-
-    # Not allowed:
-    # x -------
-    # y            -------
+    # Example input:                # Not allowed:
+    # x -------    --------         # x -------
+    # y     --------                # y            -------
 
     # Find the variables that are used in the transitions and group based on the chosen variables.
     variables_to_transitions = {}
@@ -76,14 +69,11 @@ def dissect_overlapping_transition_chain(transitions, variables, truth_matrices)
     groupings = [find_deterministic_groups(v, variables, truth_matrices) for v in variables_to_transitions.values()]
 
     # The split needs to be resolved non-deterministically.
-    return (Decision.N_DET, groupings) if len(groupings) > 1 else groupings[0]
+    return Decision.N_DET, groupings
 
 
 def group_overlapping_transitions(transitions, variables, and_truth_matrix):
     """Divide the transitions into groups, based on the equality measure"""
-    if len(transitions) == 1:
-        return transitions[0]
-
     # Transitions are in the same group if they have an equality relation with one another.
     groupings = []
 
@@ -109,24 +99,21 @@ def group_overlapping_transitions(transitions, variables, and_truth_matrix):
                     # We do not want to visit the queue head again.
                     processed_transitions.add(t2)
 
-            if len(current_group_transitions) > 0:
-                # Can the found list of groupings be dissected further?
-                sub_groupings = dissect_overlapping_transition_chain(
-                    current_group_transitions, variables, and_truth_matrix
-                )
+            # Can the found list of groupings be dissected further?
+            sub_groupings = dissect_overlapping_transition_chain(current_group_transitions, variables, and_truth_matrix)
 
-                # Add the group to the list of groupings.
-                groupings += [sub_groupings]
+            # Add the group to the list of groupings.
+            groupings += [sub_groupings]
 
     # The result is always deterministic.
-    return (Decision.DET, groupings) if len(groupings) > 1 else groupings[0]
+    return Decision.DET, groupings
 
 
 def find_deterministic_groups(transitions, _vars, and_truth_matrix):
     """Find groups that are deterministic in regards to one another"""
     # Check whether we have a list of transitions to dissect.
-    if len(transitions) <= 1:
-        return Decision.DET, transitions
+    if len(transitions) == 1:
+        return transitions[0]
 
     # Do any of the transitions always possibly overlap with the others transitions?
     # Keep in mind that the truth table has all transitions--only select those that we are examining.
@@ -136,50 +123,47 @@ def find_deterministic_groups(transitions, _vars, and_truth_matrix):
         )
     ]
 
-    # If we have several invariably active transitions, but not all transitions are, divide and conquer.
-    if len(invariably_overlapping_transitions) == 0:
-        # Dissect the group of transitions and find a way to split if possible.
-        return group_overlapping_transitions(transitions, _vars, and_truth_matrix)
+    # Find the transitions that are not invariably active.
+    remaining_transitions = [t for t in transitions if t not in invariably_overlapping_transitions]
+
+    # Recursively solve for the non invariably overlapping transitions.
+    if len(remaining_transitions) > 0:
+        remaining_groupings = [group_overlapping_transitions(remaining_transitions, _vars, and_truth_matrix)]
     else:
-        # Find the transitions that are not invariably active.
-        remaining_transitions = [t for t in transitions if t not in invariably_overlapping_transitions]
+        remaining_groupings = []
 
-        # Recursively solve for the non invariably overlapping transitions.
-        if len(remaining_transitions) > 0:
-            remaining_groupings = [find_deterministic_groups(remaining_transitions, _vars, and_truth_matrix)]
-        else:
-            remaining_groupings = []
-
-        # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
-        choices = invariably_overlapping_transitions + remaining_groupings
-        return (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
+    # The resulting sub-grouping is to be processed in parallel with the invariably active transitions.
+    choices = invariably_overlapping_transitions + remaining_groupings
+    return Decision.N_DET, choices
 
 
-def format_decision_group_tree(tree, trivially_satisfiable_transitions):
-    """Compress the decision group tree such that the decision type alternates per level"""
+def format_decision_group_tree(tree):
+    """Compress the decision group tree such that the decision type alternates per level.
+    Moreover, all transitions with guards should be part of a deterministic group"""
     if tree.__class__.__name__ == "Transition":
-        return tree
+        # A transition should always be wrapped by a deterministic choice, unless trivially satisfiable.
+        if tree.is_trivially_satisfiable:
+            return tree
+        else:
+            return Decision.DET, [tree]
     else:
         choice_type, members = tree
         compressed_members = []
         for m in members:
-            m = format_decision_group_tree(m, trivially_satisfiable_transitions)
+            m = format_decision_group_tree(m)
 
             if m.__class__.__name__ == "Transition":
-                if choice_type == Decision.N_DET:
-                    if m in trivially_satisfiable_transitions:
-                        compressed_members.append(m)
-                    else:
-                        compressed_members.append((Decision.DET, [m]))
-                else:
-                    compressed_members.append(m)
+                compressed_members.append(m)
             else:
                 if m[0] != choice_type:
                     compressed_members.append(m)
                 else:
                     compressed_members.extend(m[1])
 
-        return choice_type, compressed_members
+        if len(compressed_members) == 1:
+            return compressed_members[0]
+        else:
+            return choice_type, compressed_members
 
 
 def calculate_and_truth_matrix(transitions, variables):
@@ -210,23 +194,23 @@ def add_determinism_annotations(model):
                     trivially_satisfiable = [t for t in transitions if t.is_trivially_satisfiable]
                     trivially_unsatisfiable = [t for t in transitions if t.is_trivially_unsatisfiable]
 
+                    # All transitions may be unsatisfiable and as such, the choices array can be empty.
+                    if len(trivially_unsatisfiable) == len(transitions):
+                        continue
+
                     # Find the transitions that remain.
                     solved_transitions = trivially_satisfiable + trivially_unsatisfiable
                     remaining_transitions = [t for t in transitions if t not in solved_transitions]
 
                     # Create the truth matrices for the AND, XOR and implication operators.
                     and_truth_matrix = calculate_and_truth_matrix(remaining_transitions, variables)
-
-                    sub_groupings = []
+                    choices = list(trivially_satisfiable)
                     if len(remaining_transitions) > 0:
-                        sub_groupings += [find_deterministic_groups(remaining_transitions, variables, and_truth_matrix)]
+                        choices += [find_deterministic_groups(remaining_transitions, variables, and_truth_matrix)]
 
-                    choices = trivially_satisfiable + sub_groupings
-                    if len(choices) == 0:
-                        continue
-
+                    # If no transitions are trivially satisfiable, we do not need a N_DET wrapper.
                     groupings = (Decision.N_DET, choices) if len(choices) > 1 else choices[0]
-                    sm.groupings[state] = format_decision_group_tree(groupings, trivially_satisfiable)
+                    sm.groupings[state] = format_decision_group_tree(groupings)
 
                     if settings.print_decision_report:
                         print_determinism_report(state, sm, transitions, trivially_satisfiable, trivially_unsatisfiable)

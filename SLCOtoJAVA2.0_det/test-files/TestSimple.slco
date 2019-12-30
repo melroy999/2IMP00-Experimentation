@@ -3,9 +3,9 @@ model TestSimple {
 
 	classes
 	P {
+      variables Integer y Integer[2] x
 	  state machines
 	    SM1 {
-	      variables Integer y Integer[2] x
 		  initial SM1_0 states SM1_1
 		  transitions
 			from SM1_0 to SM1_1 {

@@ -15,10 +15,12 @@ public class TestSimple {
 
   // Enum type for state machine states
   public enum java_State {
-  SM1_1, SM1_0
+  SM1_0, SM1_1
   }
 
   // Global variables
+  public volatile int y;
+  public volatile int[] x;
 
 	// Lock class to handle locks of global variables
 	class java_Keeper {
@@ -29,9 +31,9 @@ public class TestSimple {
 
 		// Constructor
 		java_Keeper() {
-			locks = new ReentrantLock[0];
-			lockneeded = new boolean[] {  };
-			for (int i = 0; i < 0; i++) {
+			locks = new ReentrantLock[3];
+			lockneeded = new boolean[] { true,true,true };
+			for (int i = 0; i < 3; i++) {
 				locks[i] = new ReentrantLock(true);
 			}
 		}
@@ -73,8 +75,6 @@ public class TestSimple {
 		// Array to store IDs of locks to be acquired
 		private int[] java_lockIDs;
 		// Thread local variables
-		private int y;
-		private int[] x;
 
 		// Constructor
 		java_SM1Thread (TestSimple.java_Keeper java_k) {
@@ -82,9 +82,7 @@ public class TestSimple {
 			java_transcounter = 0;
 			java_currentState = TestSimple.java_State.SM1_0;
             java_kp = java_k;
-            java_lockIDs = new int[0];
-			y = 0;
-			x = new int[] {0,0};
+            java_lockIDs = new int[2];
             transitionCounterMap = new HashMap<>();
 		}
 
@@ -92,24 +90,50 @@ public class TestSimple {
         
         boolean execute_SM1_0_0() {
           // [y <= 10; y := y + 1]
-          if (!(y <= 10)) { java_transcounter++; return false; }
+          //System.out.println("SM1_SM1_0_0");
+          java_lockIDs[0] = 2;
+          //System.out.println("SM1_SM1_0__sort");
+          Arrays.sort(java_lockIDs,0,1);
+          //System.out.println("SM1_SM1_0__lock");
+          java_kp.lock(java_lockIDs, 1);
+          if (!(y <= 10)) { java_kp.unlock(java_lockIDs, 1); java_transcounter++; return false; }
           y = y + 1;
+          //System.out.println("SM1_SM1_0__unlock");
+          java_kp.unlock(java_lockIDs, 1);
           transitionCounterMap.merge("from SM1_0 to SM1_1 {[y <= 10; y := y + 1]}", 1, Integer::sum);
           return true;
         }
         
         boolean execute_SM1_0_1() {
           // [y > 10; x[0] := 0; y := 0]
-          if (!(y > 10)) { java_transcounter++; return false; }
+          //System.out.println("SM1_SM1_0_0");
+          java_lockIDs[0] = 0 + 0;
+          //System.out.println("SM1_SM1_0_1");
+          java_lockIDs[1] = 2;
+          //System.out.println("SM1_SM1_0__sort");
+          Arrays.sort(java_lockIDs,0,2);
+          //System.out.println("SM1_SM1_0__lock");
+          java_kp.lock(java_lockIDs, 2);
+          if (!(y > 10)) { java_kp.unlock(java_lockIDs, 2); java_transcounter++; return false; }
           x[0] = 0;
           y = 0;
+          //System.out.println("SM1_SM1_0__unlock");
+          java_kp.unlock(java_lockIDs, 2);
           transitionCounterMap.merge("from SM1_0 to SM1_1 {[y > 10; x[0] := 0; y := 0]}", 1, Integer::sum);
           return true;
         }
         
         boolean execute_SM1_1_0() {
           // x[0] := x[0] + 1
+          //System.out.println("SM1_SM1_1_0");
+          java_lockIDs[0] = 0 + 0;
+          //System.out.println("SM1_SM1_1__sort");
+          Arrays.sort(java_lockIDs,0,1);
+          //System.out.println("SM1_SM1_1__lock");
+          java_kp.lock(java_lockIDs, 1);
           x[0] = x[0] + 1;
+          //System.out.println("SM1_SM1_1__unlock");
+          java_kp.unlock(java_lockIDs, 1);
           transitionCounterMap.merge("from SM1_1 to SM1_0 {x[0] := x[0] + 1}", 1, Integer::sum);
           return true;
         }
@@ -182,6 +206,8 @@ public class TestSimple {
 	// Constructor for main class
 	TestSimple() {
 		// Instantiate global variables
+		y = 0;
+		x = new int[] {0,0};
 		TestSimple.java_Keeper java_k = new TestSimple.java_Keeper();
 		java_T_SM1 = new TestSimple.java_SM1Thread(java_k);
 	}

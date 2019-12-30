@@ -180,5 +180,16 @@ model Test2 {
             }
 	    }
 	}
+	V {
+	  variables Integer y
+	  state machines
+	    SM0 {
+	      initial SM0_0 states SM0_1
+	      transitions
+	        from SM0_0 to SM0_1 {
+	          y = 0; True; y := y + 1
+	        }
+	    }
+	}
 	objects p: P(y:=0), q: Q(), r: R(), s: S(), t: T(), u: U()
 }
