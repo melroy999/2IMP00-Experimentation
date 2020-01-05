@@ -138,7 +138,13 @@ public class TestIndex {
                 boolean result;
                 Instant start = Instant.now();
                 while(transitionCounter < COUNTER_BOUND) {
-                    result = exec_SM1_0();
+                    switch(currentState) {
+                        case SM1_0:
+                            result = exec_SM1_0();
+                            break;
+                        default:
+                            return;
+                    }
 
                     // Increment counter
                     transitionCounter++;
@@ -283,7 +289,13 @@ public class TestIndex {
                 boolean result;
                 Instant start = Instant.now();
                 while(transitionCounter < COUNTER_BOUND) {
-                    result = exec_SM1_0();
+                    switch(currentState) {
+                        case SM1_0:
+                            result = exec_SM1_0();
+                            break;
+                        default:
+                            return;
+                    }
 
                     // Increment counter
                     transitionCounter++;
@@ -434,7 +446,16 @@ public class TestIndex {
                 boolean result;
                 Instant start = Instant.now();
                 while(transitionCounter < COUNTER_BOUND) {
-                    result = exec_SM1_0();
+                    switch(currentState) {
+                        case SM1_0:
+                            result = exec_SM1_0();
+                            break;
+                        case SM1_1:
+                            result = exec_SM1_1();
+                            break;
+                        default:
+                            return;
+                    }
 
                     // Increment counter
                     transitionCounter++;
@@ -568,7 +589,13 @@ public class TestIndex {
                 boolean result;
                 Instant start = Instant.now();
                 while(transitionCounter < COUNTER_BOUND) {
-                    result = exec_SM1_0();
+                    switch(currentState) {
+                        case SM1_0:
+                            result = exec_SM1_0();
+                            break;
+                        default:
+                            return;
+                    }
 
                     // Increment counter
                     transitionCounter++;
@@ -697,7 +724,13 @@ public class TestIndex {
                 boolean result;
                 Instant start = Instant.now();
                 while(transitionCounter < COUNTER_BOUND) {
-                    result = exec_SM1_0();
+                    switch(currentState) {
+                        case SM1_0:
+                            result = exec_SM1_0();
+                            break;
+                        default:
+                            return;
+                    }
 
                     // Increment counter
                     transitionCounter++;

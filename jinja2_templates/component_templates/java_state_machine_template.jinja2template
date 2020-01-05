@@ -85,7 +85,7 @@ class {{model.name}}Thread extends Thread implements {{_c.name}}_{{model.name}}T
             switch(currentState) {
                 {% for s in model.states %}
                 case {{s}}:
-                    {% if add_counter %}
+                    {% if add_performance_counter %}
                     result = exec_{{s}}();
                     {% else %}
                     exec_{{s}}();

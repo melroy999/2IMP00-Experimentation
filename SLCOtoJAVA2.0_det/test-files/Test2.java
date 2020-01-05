@@ -902,7 +902,7 @@ public class Test2 {
                             transitionCounterMap.merge("from SM0_0 to SM0_1 {y = 2}", 1, Integer::sum);
                             currentState = SM0Thread.States.SM0_1;
                             return true;
-                        } else if(y <= 0 || y == 0) { 
+                        } else if(y == 0 || y <= 0) { 
                             switch(random.nextInt(2)) {
                                 case 0:
                                     if (y <= 0) { // from SM0_0 to SM0_1 {y <= 0} 
@@ -1223,18 +1223,13 @@ public class Test2 {
             }
 
             private boolean exec_SM0_0() {
+                // from SM0_0 to SM0_1 {y <= 0 or y > 0; true; y = y + 1} (trivially satisfiable)
                 lockManager.lock(0); // Request [y]
-                if (y == 0) { // from SM0_0 to SM0_1 {y = 0; true; y = y + 1} 
-                    lockManager.unlock(0); // Release [y]
-                    lockManager.lock(0); // Request [y]
-                    y = y + 1;
-                    lockManager.unlock(0); // Release [y]
-                    transitionCounterMap.merge("from SM0_0 to SM0_1 {y = 0; true; y = y + 1}", 1, Integer::sum);
-                    currentState = SM0Thread.States.SM0_1;
-                    return true;
-                } 
+                y = y + 1;
                 lockManager.unlock(0); // Release [y]
-                return false;
+                transitionCounterMap.merge("from SM0_0 to SM0_1 {y <= 0 or y > 0; true; y = y + 1} (trivially satisfiable)", 1, Integer::sum);
+                currentState = SM0Thread.States.SM0_1;
+                return true;
             }
 
             private boolean exec_SM0_1() {
