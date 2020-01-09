@@ -171,6 +171,8 @@ def assign_lock_ids_to_class_variables(model):
     """Assign lock ids to every class variable, using a dependency graph"""
     # First, create nodes for every variable we are interested in.
     variable_to_node = {}
+    for v in model.variables:
+        v.lock_id = None
 
     # Create a dependency graph, where a variable x depends on y if it is used in the index of x.
     for sm in model.statemachines:

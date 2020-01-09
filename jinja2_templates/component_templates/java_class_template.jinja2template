@@ -10,7 +10,8 @@ private static class {{model.name}} implements SLCO_Class {
     {% if model.variables | length > 0 %}
     // Global variables
     {% for v in model.variables %}
-    private volatile {{v.type | get_java_type(False)}} {{v.name}}; // Lock id {{v.lock_id}}
+    private volatile {{v.type | get_java_type(False)}} {{v.name}};{% if v.lock_id is not none %} // Lock id {{v.lock_id}}{% endif %}
+
     {% endfor %}
 
     {% endif %}

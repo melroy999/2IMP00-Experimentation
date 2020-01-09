@@ -25,7 +25,7 @@ def object_to_comment(m):
     elif model_class == "Assignment":
         var_str = m.left.var.name + ("[" + object_to_comment(m.left.index) + "]" if m.left.index is not None else "")
         exp_str = object_to_comment(m.right)
-        return "%s = %s" % (var_str, exp_str)
+        return "%s := %s" % (var_str, exp_str)
     elif model_class == "Composite":
         statement_strings = [object_to_comment(m.guard)]
         statement_strings += [object_to_comment(s) for s in m.assignments]

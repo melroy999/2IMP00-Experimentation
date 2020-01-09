@@ -1,0 +1,20 @@
+model StructureExample {
+  classes
+  P {
+    variables Integer[2] x Integer i
+    state machines
+      SM1 {
+        variables Integer k
+        initial SMC0 states SMC1
+        transitions
+          SMC0 -> SMC1 {
+            [x[i]<=10; x[i]:=x[i] + 1]
+          }
+          SMC0 -> SMC1 {
+            [x[i]>10; x[i]:=0]
+          }
+          SMC1 -> SMC0 {}
+      }
+  }
+  objects p: P()
+}

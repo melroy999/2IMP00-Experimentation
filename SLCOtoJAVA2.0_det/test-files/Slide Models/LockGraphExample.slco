@@ -1,0 +1,45 @@
+model LockGraphExample {
+  classes
+  P {
+    variables 
+	  Integer[2] x Integer[3] y Integer i Integer j Byte h
+    state machines
+      SM1 {
+		variables Integer k
+        initial SMC0 states SMC1
+        transitions
+          SMC0 -> SMC1 {
+            [x[i]<=10; x[i]:=x[i] + 1]
+          }
+          SMC0 -> SMC1 {
+            [y[x[i]]>10; x[y[i]]:=0]
+          }
+          SMC1 -> SMC0 {
+		    k := k + 1;
+			j := j + 1
+          }
+      }
+  }
+  Q {
+    variables 
+	  Integer[2] x Integer[3] y Integer i Integer j Byte h
+    state machines
+      SM1 {
+		variables Integer k
+        initial SMC0 states SMC1
+        transitions
+          SMC0 -> SMC1 {
+            [x[i]<=10; x[i]:=x[i] + 1]
+          }
+          SMC0 -> SMC1 {
+            [y[x[i]]>10; x[y[i]]:=0]
+          }
+          SMC1 -> SMC0 {
+		    k := k + 1;
+			j := j + 1;
+			y[i] := 1;
+          }
+      }
+  }
+  objects p: P()
+}
